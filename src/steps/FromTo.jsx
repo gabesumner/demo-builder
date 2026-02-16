@@ -21,8 +21,11 @@ export default function FromTo({ data, onChange, showTitles }) {
         <div className="bg-dark-surface rounded-2xl border border-dark-border p-6 shadow-[0_2px_12px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-9 h-9 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" />
+                <path strokeLinecap="round" d="M8 9.5V9.5" strokeWidth={2.5} />
+                <path strokeLinecap="round" d="M16 9.5V9.5" strokeWidth={2.5} />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 16c.5-1 1.5-2 3-2s2.5 1 3 2" />
               </svg>
             </div>
             <h3 className="font-semibold text-slate-200 text-lg">Life without the product</h3>
@@ -61,8 +64,11 @@ export default function FromTo({ data, onChange, showTitles }) {
         <div className="bg-dark-surface rounded-2xl border border-dark-border p-6 shadow-[0_2px_12px_rgba(0,0,0,0.2)]">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={3}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <circle cx="12" cy="12" r="10" />
+                <path strokeLinecap="round" d="M8 9.5V9.5" strokeWidth={2.5} />
+                <path strokeLinecap="round" d="M16 9.5V9.5" strokeWidth={2.5} />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 15c.5 1 1.5 2 3 2s2.5-1 3-2" />
               </svg>
             </div>
             <h3 className="font-semibold text-slate-200 text-lg">Life with the product</h3>
