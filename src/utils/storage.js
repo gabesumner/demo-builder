@@ -119,6 +119,9 @@ export async function importDemos(json) {
     const newId = crypto.randomUUID();
     list.push({ id: newId, name: demo.name, lastModified: demo.lastModified || Date.now() });
     await idbSave(newId, demo.data);
+    if (demo.data?.overview) {
+      setThumbnailCache(newId, demo.data.overview);
+    }
     count++;
   }
   saveDemoList(list);
