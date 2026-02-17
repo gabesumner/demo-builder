@@ -341,7 +341,7 @@ If something is already strong, keep it and note why it works in your rationale.
                     <button
                       onClick={() => goToStep(i)}
                       className={`
-                        cursor-pointer bg-transparent border-none text-xs transition-colors duration-200
+                        cursor-pointer bg-transparent border-none outline-none text-xs transition-colors duration-200
                         ${i === currentStep
                           ? 'text-sf-blue-light'
                           : 'text-slate-700 hover:text-slate-400'
