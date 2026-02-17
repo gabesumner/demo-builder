@@ -72,6 +72,7 @@ export default function Overview({ data, onChange, showTitles }) {
 
   // Drag-to-pan handlers
   const handleDragStart = useCallback((e) => {
+    if (e.target.closest('button')) return
     e.preventDefault()
     e.stopPropagation()
     setDragging(true)
