@@ -132,6 +132,95 @@ export default function DemoView() {
 
   // --- UI state ---
   const [showTitles, setShowTitles] = useState(false)
+  const [toastMessage, setToastMessage] = useState(null)
+
+  function showToast(msg) {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 2000)
+  }
+
+  function getRequirementsData() {
+    const reqData = data?.requirements
+    const normalized = Array.isArray(reqData)
+      ? { items: reqData, goal: '' }
+      : (reqData || { items: [], goal: '' })
+    return {
+      items: (normalized.items || []).filter(i => i.text),
+      goal: normalized.goal || '',
+    }
+  }
+
+  function handleCopyRequirements() {
+    const { items, goal } = getRequirementsData()
+
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const htmlParts = [`<b>${esc(demoName)}</b>`]
+    if (goal) htmlParts.push(`<i>${esc(goal)}</i>`)
+    if (items.length > 0) {
+      htmlParts.push(`<ul>${items.map(i => `<li>${esc(i.text)}</li>`).join('')}</ul>`)
+    }
+    const html = htmlParts.join('<br>')
+
+    const plainLines = [demoName]
+    if (goal) plainLines.push(goal)
+    if (items.length > 0) {
+      plainLines.push('')
+      items.forEach(i => plainLines.push(`• ${i.text}`))
+    }
+    const plain = plainLines.join('\n')
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('Contents copied to clipboard')
+  }
+
+  function handleCopyPrompt() {
+    const { items, goal } = getRequirementsData()
+    const sep = '-------------------------'
+    const numbered = items.map((item, i) => `${i + 1}. ${item.text}`).join('\n')
+
+    const prompt = `Your job is to suggest improvements to the following demo goal and requirements:
+
+${sep}
+${demoName}
+Goal: ${goal}
+${numbered}
+${sep}
+
+Suggest improvements that make the goal and sub-items:
+1. Punchy and direct — Remove unnecessary words. Make every word count.
+2. Consistent in structure — All sub-items should follow the same grammatical pattern and level of specificity.
+3. Outcome-focused — Emphasize what the product delivers or does, not generic capabilities.
+4. Product-specific — Use the product name as the subject. Show what choosing this product gets you, not what the category of products can do.
+5. Distinct and clear — Each sub-item should represent a clearly different aspect or capability. Avoid overlap.
+6. Demo-ready — Each item should be easy to visualize as a concrete demo moment, not abstract concepts.
+
+What to avoid:
+1. Don't add marketing superlatives ("superior," "best-in-class," "revolutionary")
+2. Don't make up new capabilities that you can't verify exists.
+3. Don't make things longer or more abstract
+4. Don't remove "Show how" from the items
+5. Don't make items overlap — each should be clearly distinct
+
+Format your response:
+First, provide your improved version preserving the exact format above (title, goal, subheading, numbered items).
+Then, explain your rationale for the changes.
+
+If something is already strong, keep it and note why it works in your rationale.`
+
+    navigator.clipboard.writeText(prompt)
+    showToast('Prompt copied to clipboard')
+  }
 
   const [demoName, setDemoName] = useState(() => {
     const info = getDemoList().find(d => d.id === demoId)
@@ -285,6 +374,28 @@ export default function DemoView() {
             ?
           </button>
         )}
+        {stepKey === 'requirements' && (
+          <div className="absolute top-3 right-4 z-10 flex flex-col gap-2 items-center">
+            <button
+              onClick={handleCopyRequirements}
+              className="w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
+              title="Copy to clipboard"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+              </svg>
+            </button>
+            <button
+              onClick={handleCopyPrompt}
+              className="w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
+              title="Copy AI prompt"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div
           key={transitionKey}
           className={`max-w-7xl mx-auto px-6 pt-4 pb-8 step-slide-${transitionDir}`}
@@ -300,6 +411,11 @@ export default function DemoView() {
           />
         </div>
       </div>
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 z-50 bg-slate-800 text-slate-200 text-sm px-4 py-2 rounded-lg shadow-lg border border-slate-700/50 toast-appear">
+          {toastMessage}
+        </div>
+      )}
     </div>
   )
 }
