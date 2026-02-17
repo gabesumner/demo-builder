@@ -167,7 +167,7 @@ export default function Requirements({ data, onChange, demoName, onDemoNameChang
   return (
     <div className="max-w-2xl mx-auto pt-4">
       {/* Hero section */}
-      <div className="text-center mb-14">
+      <div className="text-center mb-8">
         <input
           type="text"
           value={demoName}
