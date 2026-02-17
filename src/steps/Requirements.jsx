@@ -165,7 +165,7 @@ export default function Requirements({ data, onChange, demoName, onDemoNameChang
   }
 
   return (
-    <div className="max-w-3xl mx-auto pt-4">
+    <div className="max-w-2xl mx-auto pt-4">
       {/* Hero section */}
       <div className="text-center mb-14">
         <input

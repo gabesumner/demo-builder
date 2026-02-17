@@ -342,7 +342,7 @@ export default function Home() {
         <div className="flex items-center justify-between mb-10">
           <div>
             <h1 className="text-3xl font-bold text-white">Demo Builder</h1>
-            <p className="text-slate-500 mt-1">Create and manage your product demos</p>
+            <p className="text-slate-500 mt-1">Create and manage your product projects</p>
           </div>
           <div className="flex items-center gap-2">
             {/* Auth controls */}
