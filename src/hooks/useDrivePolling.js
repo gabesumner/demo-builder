@@ -30,7 +30,7 @@ export function useDrivePolling(driveFileId, lastModifiedTime, {
       if (result.modified) {
         const data = await getDriveDemoData(token, driveFileId)
         lastCheckedRef.current = result.modifiedTime
-        onExternalChange?.(data, result.modifiedTime)
+        onExternalChange?.(data, null, result.modifiedTime)
       }
     } catch (err) {
       // Silently ignore polling errors (network issues, expired tokens)

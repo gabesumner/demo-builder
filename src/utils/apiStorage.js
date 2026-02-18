@@ -53,6 +53,7 @@ export async function updateDemoNameInApi(demoId, name) {
     body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error('Failed to update demo name');
+  return res.json(); // { lastModified }
 }
 
 export async function checkPgModified(demoId, sinceTimestamp) {

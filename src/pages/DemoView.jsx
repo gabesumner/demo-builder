@@ -138,8 +138,9 @@ export default function DemoView() {
   // --- Polling for external changes ---
   const [lastModifiedTime, setLastModifiedTime] = useState(demoMeta?.driveModifiedTime)
 
-  const handleExternalChange = useCallback((newData, newModifiedTime) => {
+  const handleExternalChange = useCallback((newData, newName, newModifiedTime) => {
     setData(newData)
+    if (newName) setDemoName(newName)
     if (isPostgres) {
       setPgLastModified(newModifiedTime)
     } else {
@@ -454,10 +455,15 @@ If something is already strong, keep it and note why it works in your rationale.
     if (pgDemoName !== null) setDemoName(pgDemoName)
   }, [pgDemoName])
 
-  function handleDemoNameChange(newName) {
+  async function handleDemoNameChange(newName) {
     setDemoName(newName)
     if (isPostgres) {
-      updateDemoNameInApi(demoId, newName)
+      try {
+        const result = await updateDemoNameInApi(demoId, newName)
+        if (result?.lastModified) setPgLastModified(result.lastModified)
+      } catch (err) {
+        console.error('Failed to update demo name:', err)
+      }
     } else {
       updateDemoName(demoId, newName)
     }

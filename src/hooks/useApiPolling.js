@@ -21,7 +21,7 @@ export function useApiPolling(demoId, lastModifiedTime, {
       if (modified) {
         const result = await getDemoDataFromApi(demoId)
         lastCheckedRef.current = lastModified
-        onExternalChange?.(result.data, lastModified)
+        onExternalChange?.(result.data, result.name, lastModified)
       }
     } catch (err) {
       console.warn('API polling error:', err.message)
