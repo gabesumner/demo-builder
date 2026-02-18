@@ -18,8 +18,8 @@ const STEPS = [
   { key: 'requirements', label: 'Requirements' },
   { key: 'overview', label: 'Takeaway' },
   { key: 'fromTo', label: 'From/To Shift' },
-  { key: 'storyboard', label: 'Storyboard' },
   { key: 'outline', label: 'Outline' },
+  { key: 'storyboard', label: 'Storyboard' },
   { key: 'grid', label: 'Script' },
   { key: 'watch', label: 'Watch' },
 ]
@@ -295,66 +295,72 @@ export default function DemoView() {
       return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     }
 
-    const htmlSections = []
-    const plainSections = []
+    const htmlParts = []
+    const plainParts = []
+
+    // Demo title
+    htmlParts.push(`<b>${esc(demoName)}</b><br><br>`)
+    plainParts.push(demoName, '')
 
     // Requirements
     const { items: reqItems, goal } = getRequirementsData()
     if (reqItems.length > 0 || goal) {
-      const h = [`<h3>Requirements</h3>`]
-      const p = ['Requirements']
-      if (goal) { h.push(`<i>${esc(goal)}</i>`); p.push(goal) }
+      htmlParts.push(`<b>Requirements</b><br>`)
+      plainParts.push('Requirements')
+      if (goal) { htmlParts.push(`<i>${esc(goal)}</i><br>`); plainParts.push(goal) }
       if (reqItems.length > 0) {
-        h.push(`<ul>${reqItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ul>`)
-        reqItems.forEach(i => p.push(`• ${i.text}`))
+        htmlParts.push(`<ul>${reqItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ul>`)
+        reqItems.forEach(i => plainParts.push(`• ${i.text}`))
       }
-      htmlSections.push(h.join(''))
-      plainSections.push(p.join('\n'))
     }
 
     // Takeaway
     const overview = data?.overview || {}
     const { headline = '', socialPostText = '', posterName = '', posterTitle = '' } = overview
     if (posterName || socialPostText || headline) {
-      const h = [`<h3>Takeaway</h3>`]
-      const p = ['Takeaway']
+      htmlParts.push(`<b>Takeaway</b><br>`)
+      plainParts.push('', 'Takeaway')
       if (posterName) {
         const namePart = posterTitle ? `${esc(posterName)} — ${esc(posterTitle)}` : esc(posterName)
-        h.push(`<b>${namePart}</b>`)
-        p.push(posterTitle ? `${posterName} — ${posterTitle}` : posterName)
+        htmlParts.push(`${namePart}<br>`)
+        plainParts.push(posterTitle ? `${posterName} — ${posterTitle}` : posterName)
       }
-      if (socialPostText) { h.push(`<p>${esc(socialPostText)}</p>`); p.push(socialPostText) }
-      if (headline) { h.push(`<p><i>Video Thumbnail Title: ${esc(headline)}</i></p>`); p.push(`Video Thumbnail Title: ${headline}`) }
-      htmlSections.push(h.join(''))
-      plainSections.push(p.join('\n'))
+      if (socialPostText) { htmlParts.push(`${esc(socialPostText)}<br>`); plainParts.push(socialPostText) }
+      if (headline) { htmlParts.push(`<i>Video Thumbnail Title: ${esc(headline)}</i><br>`); plainParts.push(`Video Thumbnail Title: ${headline}`) }
     }
 
     // From/To Shift
     const ftData = data?.fromTo || {}
     const { from = { text: '' }, to = { text: '' } } = ftData
     if (from.text || to.text) {
-      htmlSections.push(`<h3>From/To Shift</h3><b>Without the product:</b><br>${esc(from.text)}<br><br><b>With the product:</b><br>${esc(to.text)}`)
-      plainSections.push(`From/To Shift\nWithout the product:\n${from.text}\n\nWith the product:\n${to.text}`)
-    }
-
-    // Storyboard
-    const panels = (data?.storyboard || []).filter(p => p.label || p.text)
-    if (panels.length > 0) {
-      htmlSections.push(`<h3>Storyboard</h3>` + panels.map(p => `<b>${esc(p.label || '')}</b><br>${esc(p.text || '')}`).join('<br><br>'))
-      plainSections.push('Storyboard\n' + panels.map(p => `${p.label || ''}\n${p.text || ''}`).join('\n\n'))
+      htmlParts.push(`<br><b>From/To Shift</b>`)
+      plainParts.push('', 'From/To Shift')
+      htmlParts.push(`<ul><li>Without the product${from.text ? `<ul><li>${esc(from.text)}</li></ul>` : ''}</li><li>With the product${to.text ? `<ul><li>${esc(to.text)}</li></ul>` : ''}</li></ul>`)
+      plainParts.push(`• Without the product${from.text ? `\n  • ${from.text}` : ''}`, `• With the product${to.text ? `\n  • ${to.text}` : ''}`)
     }
 
     // Outline
     const outlineItems = (data?.outline || []).filter(i => i.text)
     if (outlineItems.length > 0) {
-      htmlSections.push(`<h3>Outline</h3><ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
-      plainSections.push('Outline\n' + outlineItems.map((i, idx) => `${idx + 1}. ${i.text}`).join('\n'))
+      htmlParts.push(`<br><b>Outline</b>`)
+      plainParts.push('', 'Outline')
+      htmlParts.push(`<ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
+      outlineItems.forEach((i, idx) => plainParts.push(`${idx + 1}. ${i.text}`))
     }
 
-    if (htmlSections.length === 0) return
+    // Storyboard
+    const panels = (data?.storyboard || []).filter(p => p.label || p.text)
+    if (panels.length > 0) {
+      htmlParts.push(`<b>Storyboard</b>`)
+      plainParts.push('', 'Storyboard')
+      htmlParts.push(`<ul>${panels.map(p => `<li>${esc(p.label || '')}${p.text ? `<ul><li>${esc(p.text)}</li></ul>` : ''}</li>`).join('')}</ul>`)
+      panels.forEach(p => plainParts.push(`• ${p.label || ''}${p.text ? `\n  • ${p.text}` : ''}`))
+    }
 
-    const html = `<h2>${esc(demoName)}</h2>` + htmlSections.join('<hr>')
-    const plain = demoName + '\n\n' + plainSections.join('\n\n---\n\n')
+    if (htmlParts.length <= 1) return
+
+    const html = htmlParts.join('')
+    const plain = plainParts.join('\n')
 
     try {
       navigator.clipboard.write([new ClipboardItem({
