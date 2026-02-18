@@ -50,6 +50,16 @@ if (process.env.DATABASE_URL) {
     );
   });
 
+  // Get demo metadata only (for polling)
+  app.get("/api/demos/:id/meta", async (req, res) => {
+    const { rows } = await getPool().query(
+      "SELECT name, last_modified FROM demos WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+    res.json({ name: rows[0].name, lastModified: Number(rows[0].last_modified) });
+  });
+
   // Get single demo
   app.get("/api/demos/:id", async (req, res) => {
     const { rows } = await getPool().query(

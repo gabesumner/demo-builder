@@ -3,7 +3,7 @@ import { saveDemoData, flushDemoData } from './storage';
 import { saveDriveDemoData } from './driveStorage';
 import { saveDemoDataToApi } from './apiStorage';
 
-export function useAutosave(demoId, { storage = 'local', driveFileId = null, getToken = null, onSaveStatus = null } = {}) {
+export function useAutosave(demoId, { storage = 'local', driveFileId = null, getToken = null, onSaveStatus = null, onSaveComplete = null } = {}) {
   const timerRef = useRef(null);
   const pendingRef = useRef(null);
   const savingRef = useRef(false);
@@ -35,8 +35,9 @@ export function useAutosave(demoId, { storage = 'local', driveFileId = null, get
       savingRef.current = true;
       onSaveStatus?.('saving');
       try {
-        await saveDemoDataToApi(demoId, data);
+        const result = await saveDemoDataToApi(demoId, data);
         onSaveStatus?.('saved');
+        onSaveComplete?.(result.lastModified);
       } catch (err) {
         console.error('API save failed:', err);
         onSaveStatus?.('error');
@@ -44,7 +45,7 @@ export function useAutosave(demoId, { storage = 'local', driveFileId = null, get
         savingRef.current = false;
       }
     }
-  }, [demoId, storage, driveFileId, getToken, onSaveStatus]);
+  }, [demoId, storage, driveFileId, getToken, onSaveStatus, onSaveComplete]);
 
   const flush = useCallback(() => {
     if (timerRef.current) {

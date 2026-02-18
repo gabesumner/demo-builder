@@ -55,5 +55,12 @@ export async function updateDemoNameInApi(demoId, name) {
   if (!res.ok) throw new Error('Failed to update demo name');
 }
 
+export async function checkPgModified(demoId, sinceTimestamp) {
+  const res = await fetch(`/api/demos/${demoId}/meta`)
+  if (!res.ok) return { modified: false }
+  const { lastModified } = await res.json()
+  return { modified: lastModified > sinceTimestamp, lastModified }
+}
+
 // Re-export thumbnail cache helpers — these stay in localStorage
 export { getThumbnailCache, setThumbnailCache };

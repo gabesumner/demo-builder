@@ -7,6 +7,7 @@ import { useAutosave } from '../utils/useAutosave'
 import { useGoogleAuth } from '../contexts/GoogleAuthContext'
 import { useStorageMode } from '../contexts/StorageModeContext'
 import { useDrivePolling } from '../hooks/useDrivePolling'
+import { useApiPolling } from '../hooks/useApiPolling'
 import SaveStatusIndicator from '../components/SaveStatusIndicator'
 import Overview from '../steps/Overview'
 import Requirements from '../steps/Requirements'
@@ -46,6 +47,7 @@ export default function DemoView() {
   const [transitionKey, setTransitionKey] = useState(0)
   const [transitionDir, setTransitionDir] = useState('right')
   const [saveStatus, setSaveStatus] = useState('idle')
+  const [pgLastModified, setPgLastModified] = useState(0)
   const isInitialMount = useRef(true)
 
   const { ensureToken, isSignedIn } = useGoogleAuth()
@@ -62,12 +64,16 @@ export default function DemoView() {
 
   // Save status callback
   const onSaveStatus = useCallback((status) => setSaveStatus(status), [])
+  const onSaveComplete = useCallback((lastModified) => {
+    if (lastModified) setPgLastModified(lastModified)
+  }, [])
 
   const save = useAutosave(demoId, {
     storage,
     driveFileId,
     getToken: storage === 'drive' ? getToken : null,
     onSaveStatus: (storage === 'drive' || storage === 'postgres') ? onSaveStatus : null,
+    onSaveComplete: storage === 'postgres' ? onSaveComplete : null,
   })
 
   // --- Load demo data ---
@@ -82,6 +88,7 @@ export default function DemoView() {
           if (!cancelled) {
             setData(result.data)
             setPgDemoName(result.name)
+            setPgLastModified(result.lastModified)
           }
         } else if (storage === 'drive' && driveFileId) {
           const token = await ensureToken()
@@ -128,19 +135,28 @@ export default function DemoView() {
     }
   }, [data, save, demoId])
 
-  // --- Polling for external changes (Drive only) ---
+  // --- Polling for external changes ---
   const [lastModifiedTime, setLastModifiedTime] = useState(demoMeta?.driveModifiedTime)
 
   const handleExternalChange = useCallback((newData, newModifiedTime) => {
     setData(newData)
-    setLastModifiedTime(newModifiedTime)
+    if (isPostgres) {
+      setPgLastModified(newModifiedTime)
+    } else {
+      setLastModifiedTime(newModifiedTime)
+    }
     isInitialMount.current = true // Prevent re-save of externally loaded data
     setTimeout(() => { isInitialMount.current = false }, 100)
-  }, [])
+  }, [isPostgres])
 
   useDrivePolling(driveFileId, lastModifiedTime, {
     enabled: storage === 'drive' && !isPostgres && isSignedIn && !isLoading,
     getToken,
+    onExternalChange: handleExternalChange,
+  })
+
+  useApiPolling(demoId, pgLastModified, {
+    enabled: isPostgres && !isLoading,
     onExternalChange: handleExternalChange,
   })
 
