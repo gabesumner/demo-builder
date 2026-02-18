@@ -34,10 +34,10 @@ if (process.env.DATABASE_URL) {
 
   app.use(express.json({ limit: "20mb" }));
 
-  // List all demos (metadata only)
+  // List all demos (metadata + overview for thumbnail rendering)
   app.get("/api/demos", async (_req, res) => {
     const { rows } = await getPool().query(
-      "SELECT id, name, last_modified FROM demos ORDER BY last_modified DESC"
+      "SELECT id, name, last_modified, data->'overview' AS overview FROM demos ORDER BY last_modified DESC"
     );
     res.json(
       rows.map((r) => ({
@@ -45,6 +45,7 @@ if (process.env.DATABASE_URL) {
         name: r.name,
         lastModified: Number(r.last_modified),
         storage: "postgres",
+        overview: r.overview || null,
       }))
     );
   });

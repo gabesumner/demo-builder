@@ -168,7 +168,14 @@ export default function Home() {
   // Refresh list — branches on storage mode
   const refreshList = useCallback(() => {
     if (isPostgres) {
-      getDemoListFromApi().then(setDemos).catch(console.error)
+      getDemoListFromApi()
+        .then(list => {
+          list.forEach(demo => {
+            if (demo.overview) setThumbnailCache(demo.id, demo.overview)
+          })
+          setDemos(list)
+        })
+        .catch(console.error)
     } else {
       setDemos(getDemoList())
     }
@@ -179,7 +186,13 @@ export default function Home() {
     if (storageModeLoading || !isPostgres) return
     setPgLoading(true)
     getDemoListFromApi()
-      .then(setDemos)
+      .then(list => {
+        // Seed thumbnail cache from server data for fresh browsers
+        list.forEach(demo => {
+          if (demo.overview) setThumbnailCache(demo.id, demo.overview)
+        })
+        setDemos(list)
+      })
       .catch(console.error)
       .finally(() => setPgLoading(false))
   }, [isPostgres, storageModeLoading])
