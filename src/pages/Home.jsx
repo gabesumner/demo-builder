@@ -498,7 +498,7 @@ export default function Home() {
           </div>
         )}
 
-        {demos.length === 0 ? (
+        {!pgLoading && demos.length === 0 ? (
           <div className="text-center py-20 bg-dark-surface rounded-xl border border-dark-border">
             <div className="text-5xl mb-4 opacity-60">🎬</div>
             <p className="text-slate-400 text-lg">No demos yet</p>
