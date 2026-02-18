@@ -2,8 +2,10 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getDemoData, getDemoList, updateDemoName, setThumbnailCache } from '../utils/storage'
 import { getDriveDemoData } from '../utils/driveStorage'
+import { getDemoDataFromApi, updateDemoNameInApi } from '../utils/apiStorage'
 import { useAutosave } from '../utils/useAutosave'
 import { useGoogleAuth } from '../contexts/GoogleAuthContext'
+import { useStorageMode } from '../contexts/StorageModeContext'
 import { useDrivePolling } from '../hooks/useDrivePolling'
 import SaveStatusIndicator from '../components/SaveStatusIndicator'
 import Overview from '../steps/Overview'
@@ -47,10 +49,12 @@ export default function DemoView() {
   const isInitialMount = useRef(true)
 
   const { ensureToken, isSignedIn } = useGoogleAuth()
+  const { mode: storageMode } = useStorageMode()
+  const isPostgres = storageMode === 'postgres'
 
   // Look up demo metadata
-  const demoMeta = useMemo(() => getDemoList().find(d => d.id === demoId), [demoId])
-  const storage = demoMeta?.storage || 'local'
+  const demoMeta = useMemo(() => isPostgres ? null : getDemoList().find(d => d.id === demoId), [demoId, isPostgres])
+  const storage = isPostgres ? 'postgres' : (demoMeta?.storage || 'local')
   const driveFileId = demoMeta?.driveFileId || null
 
   // Stable token getter for hooks
@@ -63,7 +67,7 @@ export default function DemoView() {
     storage,
     driveFileId,
     getToken: storage === 'drive' ? getToken : null,
-    onSaveStatus: storage === 'drive' ? onSaveStatus : null,
+    onSaveStatus: (storage === 'drive' || storage === 'postgres') ? onSaveStatus : null,
   })
 
   // --- Load demo data ---
@@ -73,7 +77,13 @@ export default function DemoView() {
       setIsLoading(true)
       setLoadError(null)
       try {
-        if (storage === 'drive' && driveFileId) {
+        if (storage === 'postgres') {
+          const result = await getDemoDataFromApi(demoId)
+          if (!cancelled) {
+            setData(result.data)
+            setPgDemoName(result.name)
+          }
+        } else if (storage === 'drive' && driveFileId) {
           const token = await ensureToken()
           const driveData = await getDriveDemoData(token, driveFileId)
           if (!cancelled) setData(driveData)
@@ -82,12 +92,16 @@ export default function DemoView() {
           if (!cancelled) setData(localData)
         }
       } catch (err) {
-        console.error('Failed to load from Drive:', err)
+        console.error('Failed to load demo:', err)
         if (!cancelled) {
-          // Try local shadow copy
-          const shadow = await getDemoData(demoId)
-          if (shadow && Object.keys(shadow).length > 0) {
-            setData(shadow)
+          if (storage !== 'postgres') {
+            // Try local shadow copy
+            const shadow = await getDemoData(demoId)
+            if (shadow && Object.keys(shadow).length > 0) {
+              setData(shadow)
+            } else {
+              setLoadError(err)
+            }
           } else {
             setLoadError(err)
           }
@@ -125,7 +139,7 @@ export default function DemoView() {
   }, [])
 
   useDrivePolling(driveFileId, lastModifiedTime, {
-    enabled: storage === 'drive' && isSignedIn && !isLoading,
+    enabled: storage === 'drive' && !isPostgres && isSignedIn && !isLoading,
     getToken,
     onExternalChange: handleExternalChange,
   })
@@ -412,14 +426,25 @@ If something is already strong, keep it and note why it works in your rationale.
     showToast('Prompt copied to clipboard')
   }
 
+  const [pgDemoName, setPgDemoName] = useState(null)
   const [demoName, setDemoName] = useState(() => {
+    if (isPostgres) return 'Loading...'
     const info = getDemoList().find(d => d.id === demoId)
     return info?.name || 'Untitled Demo'
   })
 
+  // Update demoName once pgDemoName is loaded
+  useEffect(() => {
+    if (pgDemoName !== null) setDemoName(pgDemoName)
+  }, [pgDemoName])
+
   function handleDemoNameChange(newName) {
     setDemoName(newName)
-    updateDemoName(demoId, newName)
+    if (isPostgres) {
+      updateDemoNameInApi(demoId, newName)
+    } else {
+      updateDemoName(demoId, newName)
+    }
   }
 
   const updateData = useCallback((stepKey, stepData) => {
@@ -464,7 +489,7 @@ If something is already strong, keep it and note why it works in your rationale.
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
           <p className="text-slate-500 text-sm">
-            {storage === 'drive' ? 'Loading from Google Drive...' : 'Loading...'}
+            {storage === 'drive' ? 'Loading from Google Drive...' : storage === 'postgres' ? 'Loading from server...' : 'Loading...'}
           </p>
         </div>
       </div>

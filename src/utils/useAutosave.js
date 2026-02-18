@@ -1,6 +1,7 @@
 import { useCallback, useRef, useEffect } from 'react';
 import { saveDemoData, flushDemoData } from './storage';
 import { saveDriveDemoData } from './driveStorage';
+import { saveDemoDataToApi } from './apiStorage';
 
 export function useAutosave(demoId, { storage = 'local', driveFileId = null, getToken = null, onSaveStatus = null } = {}) {
   const timerRef = useRef(null);
@@ -29,6 +30,19 @@ export function useAutosave(demoId, { storage = 'local', driveFileId = null, get
       } finally {
         savingRef.current = false;
       }
+    } else if (storage === 'postgres') {
+      if (savingRef.current) return;
+      savingRef.current = true;
+      onSaveStatus?.('saving');
+      try {
+        await saveDemoDataToApi(demoId, data);
+        onSaveStatus?.('saved');
+      } catch (err) {
+        console.error('API save failed:', err);
+        onSaveStatus?.('error');
+      } finally {
+        savingRef.current = false;
+      }
     }
   }, [demoId, storage, driveFileId, getToken, onSaveStatus]);
 
@@ -44,7 +58,7 @@ export function useAutosave(demoId, { storage = 'local', driveFileId = null, get
     }
   }, [demoId]);
 
-  const debounceMs = storage === 'drive' ? 2000 : 400;
+  const debounceMs = (storage === 'drive' || storage === 'postgres') ? 2000 : 400;
 
   const save = useCallback((data) => {
     pendingRef.current = data;

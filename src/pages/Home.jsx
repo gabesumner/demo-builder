@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDemoList, getDemoData, createDemo, deleteDemo, importDemos, mergeDriveEntries, updateDemoStorage, removeLocalData, getThumbnailCache, saveDemoList, saveDemoData } from '../utils/storage'
+import { getDemoList, getDemoData, createDemo, deleteDemo, importDemos, mergeDriveEntries, updateDemoStorage, removeLocalData, getThumbnailCache, saveDemoList, saveDemoData, createEmptyDemo } from '../utils/storage'
 import { getDriveList, createDriveDemo, deleteDriveDemo, uploadToDrive, getDriveDemoData, importDriveFile } from '../utils/driveStorage'
+import { getDemoListFromApi, getDemoDataFromApi, createDemoInApi, deleteDemoFromApi, saveDemoDataToApi } from '../utils/apiStorage'
 import { useGoogleAuth } from '../contexts/GoogleAuthContext'
+import { useStorageMode } from '../contexts/StorageModeContext'
 import { GRADIENT_PRESETS } from '../steps/Overview'
 import NewDemoModal from '../components/NewDemoModal'
 import MoveConfirmModal from '../components/MoveConfirmModal'
@@ -148,19 +150,39 @@ function openPicker(accessToken, apiKey) {
 // --- Main Component ---
 
 export default function Home() {
-  const [demos, setDemos] = useState(getDemoList)
+  const { mode: storageMode, loading: storageModeLoading } = useStorageMode()
+  const isPostgres = storageMode === 'postgres'
+
+  const [demos, setDemos] = useState(() => isPostgres ? [] : getDemoList())
   const [showConfirm, setShowConfirm] = useState(null)
   const [showNewModal, setShowNewModal] = useState(false)
   const [moveTarget, setMoveTarget] = useState(null) // { id, name, storage, driveFileId }
   const [isMoving, setIsMoving] = useState(false)
   const [driveLoading, setDriveLoading] = useState(false)
+  const [pgLoading, setPgLoading] = useState(false)
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
 
   const { isSignedIn, isLoading: authLoading, user, signIn, signOut, ensureToken, hasClientId } = useGoogleAuth()
 
-  // Fetch Drive demos when signed in
-  const refreshList = useCallback(() => setDemos(getDemoList()), [])
+  // Refresh list — branches on storage mode
+  const refreshList = useCallback(() => {
+    if (isPostgres) {
+      getDemoListFromApi().then(setDemos).catch(console.error)
+    } else {
+      setDemos(getDemoList())
+    }
+  }, [isPostgres])
+
+  // Fetch Postgres demos on mount
+  useEffect(() => {
+    if (storageModeLoading || !isPostgres) return
+    setPgLoading(true)
+    getDemoListFromApi()
+      .then(setDemos)
+      .catch(console.error)
+      .finally(() => setPgLoading(false))
+  }, [isPostgres, storageModeLoading])
 
   useEffect(() => {
     if (!isSignedIn) return
@@ -186,6 +208,17 @@ export default function Home() {
 
   // --- Create demo ---
   async function handleCreate(name, storage) {
+    if (isPostgres) {
+      try {
+        const result = await createDemoInApi(name)
+        refreshList()
+        navigate(`/demo/${result.id}`)
+      } catch (err) {
+        console.error('Failed to create demo:', err)
+        alert('Failed to create demo.')
+      }
+      return
+    }
     if (storage === 'drive') {
       try {
         const token = await ensureToken()
@@ -212,6 +245,12 @@ export default function Home() {
   // --- Delete ---
   async function handleDelete(e, demo) {
     e.stopPropagation()
+    if (isPostgres) {
+      await deleteDemoFromApi(demo.id)
+      refreshList()
+      setShowConfirm(null)
+      return
+    }
     if (demo.storage === 'drive' && demo.driveFileId) {
       try {
         const token = await ensureToken()
@@ -229,7 +268,10 @@ export default function Home() {
   async function handleExport(e, demo) {
     e.stopPropagation()
     let data
-    if (demo.storage === 'drive' && demo.driveFileId) {
+    if (isPostgres) {
+      const result = await getDemoDataFromApi(demo.id)
+      data = result.data
+    } else if (demo.storage === 'drive' && demo.driveFileId) {
       try {
         const token = await ensureToken()
         data = await getDriveDemoData(token, demo.driveFileId)
@@ -257,7 +299,16 @@ export default function Home() {
     const reader = new FileReader()
     reader.onload = async () => {
       try {
-        await importDemos(reader.result)
+        if (isPostgres) {
+          const parsed = JSON.parse(reader.result)
+          if (!parsed || !Array.isArray(parsed.demos)) throw new Error('Invalid file format')
+          for (const demo of parsed.demos) {
+            const result = await createDemoInApi(demo.name)
+            await saveDemoDataToApi(result.id, demo.data)
+          }
+        } else {
+          await importDemos(reader.result)
+        }
         refreshList()
       } catch {
         alert('Failed to import. The file may be invalid.')
@@ -345,8 +396,8 @@ export default function Home() {
             <p className="text-slate-500 mt-1">Create and manage your product projects</p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Auth controls */}
-            {hasClientId && (
+            {/* Auth controls — hidden in postgres mode */}
+            {!isPostgres && hasClientId && (
               isSignedIn ? (
                 <div className="flex items-center gap-2 mr-2">
                   <span className="text-xs text-slate-500 truncate max-w-32">{user?.email}</span>
@@ -372,8 +423,8 @@ export default function Home() {
               )
             )}
 
-            {/* Open from Drive */}
-            {isSignedIn && (
+            {/* Open from Drive — hidden in postgres mode */}
+            {!isPostgres && isSignedIn && (
               <button
                 onClick={handleOpenFromDrive}
                 className="text-slate-400 hover:text-white bg-transparent hover:bg-white/5 border border-dark-border px-3 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5"
@@ -410,6 +461,16 @@ export default function Home() {
             </button>
           </div>
         </div>
+
+        {pgLoading && (
+          <div className="text-center text-slate-600 text-xs mb-4 flex items-center justify-center gap-2">
+            <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading demos...
+          </div>
+        )}
 
         {driveLoading && (
           <div className="text-center text-slate-600 text-xs mb-4 flex items-center justify-center gap-2">
@@ -465,8 +526,8 @@ export default function Home() {
                           </div>
                         ) : (
                           <div className="flex items-center gap-0.5">
-                            {/* Move button */}
-                            {isSignedIn && (
+                            {/* Move button — hidden in postgres mode */}
+                            {!isPostgres && isSignedIn && (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setMoveTarget(demo) }}
                                 className="text-slate-700 hover:text-slate-300 p-1 rounded transition-colors cursor-pointer bg-transparent border-none opacity-0 group-hover:opacity-100"
@@ -511,6 +572,7 @@ export default function Home() {
         onClose={() => setShowNewModal(false)}
         onCreate={handleCreate}
         driveAvailable={isSignedIn}
+        postgresMode={isPostgres}
       />
 
       <MoveConfirmModal
