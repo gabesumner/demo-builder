@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getDemoList, getDemoData, createDemo, deleteDemo, importDemos, mergeDriveEntries, updateDemoStorage, removeLocalData, getThumbnailCache, saveDemoList, saveDemoData, createEmptyDemo } from '../utils/storage'
+import { getDemoList, getDemoData, createDemo, deleteDemo, importDemos, mergeDriveEntries, updateDemoStorage, removeLocalData, getThumbnailCache, saveDemoList, saveDemoData } from '../utils/storage'
 import { getDriveList, createDriveDemo, deleteDriveDemo, uploadToDrive, getDriveDemoData, importDriveFile } from '../utils/driveStorage'
-import { getDemoListFromApi, getDemoDataFromApi, createDemoInApi, deleteDemoFromApi, saveDemoDataToApi } from '../utils/apiStorage'
+import { getDemoListFromApi, getDemoDataFromApi, createDemoInApi, deleteDemoFromApi, saveDemoDataToApi, setThumbnailCache } from '../utils/apiStorage'
 import { useGoogleAuth } from '../contexts/GoogleAuthContext'
 import { useStorageMode } from '../contexts/StorageModeContext'
 import { GRADIENT_PRESETS } from '../steps/Overview'
@@ -305,6 +305,9 @@ export default function Home() {
           for (const demo of parsed.demos) {
             const result = await createDemoInApi(demo.name)
             await saveDemoDataToApi(result.id, demo.data)
+            if (demo.data?.overview) {
+              setThumbnailCache(result.id, demo.data.overview)
+            }
           }
         } else {
           await importDemos(reader.result)
