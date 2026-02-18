@@ -184,6 +184,190 @@ export default function DemoView() {
     showToast('Contents copied to clipboard')
   }
 
+  function handleCopyOverview() {
+    const overview = data?.overview || {}
+    const { headline = '', socialPostText = '', posterName = '', posterTitle = '' } = overview
+
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const htmlParts = []
+    if (posterName) {
+      const namePart = posterTitle ? `${esc(posterName)} — ${esc(posterTitle)}` : esc(posterName)
+      htmlParts.push(`<b>${namePart}</b>`)
+    }
+    if (socialPostText) htmlParts.push(`<p>${esc(socialPostText)}</p>`)
+    if (headline) htmlParts.push(`<p><i>Video Thumbnail Title: ${esc(headline)}</i></p>`)
+    const html = htmlParts.join('')
+
+    const plainLines = []
+    if (posterName) {
+      plainLines.push(posterTitle ? `${posterName} — ${posterTitle}` : posterName)
+    }
+    if (socialPostText) { plainLines.push(''); plainLines.push(socialPostText) }
+    if (headline) { plainLines.push(''); plainLines.push(`Video Thumbnail Title: ${headline}`) }
+    const plain = plainLines.join('\n')
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('Contents copied to clipboard')
+  }
+
+  function handleCopyFromTo() {
+    const ftData = data?.fromTo || {}
+    const { from = { text: '' }, to = { text: '' } } = ftData
+
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const html = `<b>Without the product:</b><br>${esc(from.text)}<br><br><b>With the product:</b><br>${esc(to.text)}`
+    const plain = `Without the product:\n${from.text}\n\nWith the product:\n${to.text}`
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('Contents copied to clipboard')
+  }
+
+  function handleCopyOutline() {
+    const items = (data?.outline || []).filter(i => i.text)
+    if (items.length === 0) return
+
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const html = `<ol>${items.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`
+    const plain = items.map((i, idx) => `${idx + 1}. ${i.text}`).join('\n')
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('Contents copied to clipboard')
+  }
+
+  function handleCopyStoryboard() {
+    const panels = (data?.storyboard || []).filter(p => p.label || p.text)
+    if (panels.length === 0) return
+
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const html = panels.map(p => `<b>${esc(p.label || '')}</b><br>${esc(p.text || '')}`).join('<br><br>')
+    const plain = panels.map(p => `${p.label || ''}\n${p.text || ''}`).join('\n\n')
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('Contents copied to clipboard')
+  }
+
+  function handleCopyAll() {
+    function esc(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    }
+
+    const htmlSections = []
+    const plainSections = []
+
+    // Requirements
+    const { items: reqItems, goal } = getRequirementsData()
+    if (reqItems.length > 0 || goal) {
+      const h = [`<h3>Requirements</h3>`]
+      const p = ['Requirements']
+      if (goal) { h.push(`<i>${esc(goal)}</i>`); p.push(goal) }
+      if (reqItems.length > 0) {
+        h.push(`<ul>${reqItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ul>`)
+        reqItems.forEach(i => p.push(`• ${i.text}`))
+      }
+      htmlSections.push(h.join(''))
+      plainSections.push(p.join('\n'))
+    }
+
+    // Takeaway
+    const overview = data?.overview || {}
+    const { headline = '', socialPostText = '', posterName = '', posterTitle = '' } = overview
+    if (posterName || socialPostText || headline) {
+      const h = [`<h3>Takeaway</h3>`]
+      const p = ['Takeaway']
+      if (posterName) {
+        const namePart = posterTitle ? `${esc(posterName)} — ${esc(posterTitle)}` : esc(posterName)
+        h.push(`<b>${namePart}</b>`)
+        p.push(posterTitle ? `${posterName} — ${posterTitle}` : posterName)
+      }
+      if (socialPostText) { h.push(`<p>${esc(socialPostText)}</p>`); p.push(socialPostText) }
+      if (headline) { h.push(`<p><i>Video Thumbnail Title: ${esc(headline)}</i></p>`); p.push(`Video Thumbnail Title: ${headline}`) }
+      htmlSections.push(h.join(''))
+      plainSections.push(p.join('\n'))
+    }
+
+    // From/To Shift
+    const ftData = data?.fromTo || {}
+    const { from = { text: '' }, to = { text: '' } } = ftData
+    if (from.text || to.text) {
+      htmlSections.push(`<h3>From/To Shift</h3><b>Without the product:</b><br>${esc(from.text)}<br><br><b>With the product:</b><br>${esc(to.text)}`)
+      plainSections.push(`From/To Shift\nWithout the product:\n${from.text}\n\nWith the product:\n${to.text}`)
+    }
+
+    // Storyboard
+    const panels = (data?.storyboard || []).filter(p => p.label || p.text)
+    if (panels.length > 0) {
+      htmlSections.push(`<h3>Storyboard</h3>` + panels.map(p => `<b>${esc(p.label || '')}</b><br>${esc(p.text || '')}`).join('<br><br>'))
+      plainSections.push('Storyboard\n' + panels.map(p => `${p.label || ''}\n${p.text || ''}`).join('\n\n'))
+    }
+
+    // Outline
+    const outlineItems = (data?.outline || []).filter(i => i.text)
+    if (outlineItems.length > 0) {
+      htmlSections.push(`<h3>Outline</h3><ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
+      plainSections.push('Outline\n' + outlineItems.map((i, idx) => `${idx + 1}. ${i.text}`).join('\n'))
+    }
+
+    if (htmlSections.length === 0) return
+
+    const html = `<h2>${esc(demoName)}</h2>` + htmlSections.join('<hr>')
+    const plain = demoName + '\n\n' + plainSections.join('\n\n---\n\n')
+
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([html], { type: 'text/html' }),
+        'text/plain': new Blob([plain], { type: 'text/plain' }),
+      })])
+    } catch {
+      navigator.clipboard.writeText(plain)
+    }
+
+    showToast('All contents copied to clipboard')
+  }
+
   function handleCopyPrompt() {
     const { items, goal } = getRequirementsData()
     const sep = '-------------------------'
@@ -330,6 +514,15 @@ If something is already strong, keep it and note why it works in your rationale.
                 <span className="text-xs text-slate-500 truncate max-w-40">
                   {demoName}
                 </span>
+                <button
+                  onClick={handleCopyAll}
+                  className="text-slate-700 hover:text-slate-400 transition-colors cursor-pointer bg-transparent border-none p-0 flex-shrink-0"
+                  title="Copy all contents to clipboard"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+                  </svg>
+                </button>
                 <SaveStatusIndicator status={saveStatus} storage={storage} />
               </div>
 
@@ -365,19 +558,10 @@ If something is already strong, keep it and note why it works in your rationale.
 
       {/* Step content with transition */}
       <div className="flex-1 overflow-x-clip relative">
-        {stepKey !== 'requirements' && (
-          <button
-            onClick={() => setShowTitles(prev => !prev)}
-            className="absolute top-3 right-4 z-10 w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 text-xs font-medium flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
-            title="Toggle page titles"
-          >
-            ?
-          </button>
-        )}
-        {stepKey === 'requirements' && (
-          <div className="absolute top-3 right-4 z-10 flex flex-col gap-2 items-center">
+        <div className="absolute top-3 right-4 z-10 flex flex-col gap-2 items-center">
+          {(stepKey === 'requirements' || stepKey === 'overview' || stepKey === 'fromTo' || stepKey === 'outline' || stepKey === 'storyboard') && (
             <button
-              onClick={handleCopyRequirements}
+              onClick={{ requirements: handleCopyRequirements, overview: handleCopyOverview, fromTo: handleCopyFromTo, outline: handleCopyOutline, storyboard: handleCopyStoryboard }[stepKey]}
               className="w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
               title="Copy to clipboard"
             >
@@ -385,6 +569,8 @@ If something is already strong, keep it and note why it works in your rationale.
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
               </svg>
             </button>
+          )}
+          {stepKey === 'requirements' && (
             <button
               onClick={handleCopyPrompt}
               className="w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
@@ -394,8 +580,17 @@ If something is already strong, keep it and note why it works in your rationale.
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
               </svg>
             </button>
-          </div>
-        )}
+          )}
+          {stepKey !== 'requirements' && (
+            <button
+              onClick={() => setShowTitles(prev => !prev)}
+              className="w-6 h-6 rounded-full bg-slate-700/40 hover:bg-slate-600/60 text-slate-500 hover:text-slate-300 text-xs font-medium flex items-center justify-center cursor-pointer border-none transition-colors duration-200"
+              title="Toggle page titles"
+            >
+              ?
+            </button>
+          )}
+        </div>
         <div
           key={transitionKey}
           className={`max-w-7xl mx-auto px-6 pt-4 pb-8 step-slide-${transitionDir}`}
