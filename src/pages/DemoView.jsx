@@ -21,14 +21,14 @@ const STEPS = [
   { key: 'requirements', label: 'Requirements' },
   { key: 'overview', label: 'Takeaway' },
   { key: 'fromTo', label: 'From/To Shift' },
-  { key: 'outline', label: 'Outline' },
   { key: 'storyboard', label: 'Storyboard' },
+  { key: 'outline', label: 'Outline' },
   { key: 'grid', label: 'Script' },
   { key: 'watch', label: 'Watch' },
 ]
 
 // URL slugs for each step (same order as STEPS)
-const STEP_SLUGS = ['requirements', 'overview', 'from-to', 'outline', 'storyboard', 'script', 'watch']
+const STEP_SLUGS = ['requirements', 'overview', 'from-to', 'storyboard', 'outline', 'script', 'watch']
 const SLUG_TO_INDEX = Object.fromEntries(STEP_SLUGS.map((slug, i) => [slug, i]))
 
 const STEP_COMPONENTS = {
@@ -382,22 +382,22 @@ export default function DemoView() {
       plainParts.push(`• Without the product${from.text ? `\n  • ${from.text}` : ''}`, `• With the product${to.text ? `\n  • ${to.text}` : ''}`)
     }
 
-    // Outline
-    const outlineItems = (data?.outline || []).filter(i => i.text)
-    if (outlineItems.length > 0) {
-      htmlParts.push(`<br><b>Outline</b>`)
-      plainParts.push('', 'Outline')
-      htmlParts.push(`<ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
-      outlineItems.forEach((i, idx) => plainParts.push(`${idx + 1}. ${i.text}`))
-    }
-
     // Storyboard
     const panels = (data?.storyboard || []).filter(p => p.label || p.text)
     if (panels.length > 0) {
-      htmlParts.push(`<b>Storyboard</b>`)
+      htmlParts.push(`<br><b>Storyboard</b>`)
       plainParts.push('', 'Storyboard')
       htmlParts.push(`<ul>${panels.map(p => `<li>${esc(p.label || '')}${p.text ? `<ul><li>${esc(p.text)}</li></ul>` : ''}</li>`).join('')}</ul>`)
       panels.forEach(p => plainParts.push(`• ${p.label || ''}${p.text ? `\n  • ${p.text}` : ''}`))
+    }
+
+    // Outline
+    const outlineItems = (data?.outline || []).filter(i => i.text)
+    if (outlineItems.length > 0) {
+      htmlParts.push(`<b>Outline</b>`)
+      plainParts.push('', 'Outline')
+      htmlParts.push(`<ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
+      outlineItems.forEach((i, idx) => plainParts.push(`${idx + 1}. ${i.text}`))
     }
 
     if (htmlParts.length <= 1) return
