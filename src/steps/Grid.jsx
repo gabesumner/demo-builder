@@ -171,7 +171,7 @@ export default function Grid({ data, onChange, allData, showTitles }) {
             <div className="text-xs text-slate-500 mt-0.5">Talk Track</div>
           </div>
           <div className="px-5 py-4 border-r border-dark-border">
-            <div className="font-semibold text-sm text-slate-200">What You Do</div>
+            <div className="font-semibold text-sm text-slate-200">What's Happening</div>
             <div className="text-xs text-slate-500 mt-0.5">Click Path</div>
           </div>
           <div />
