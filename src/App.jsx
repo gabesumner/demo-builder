@@ -6,7 +6,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Home />} />
-      <Route path="/demo/:demoId" element={<DemoView />} />
+      <Route path="/demo/:demoId/:step?" element={<DemoView />} />
     </Routes>
   )
 }

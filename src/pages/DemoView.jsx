@@ -27,6 +27,10 @@ const STEPS = [
   { key: 'watch', label: 'Watch' },
 ]
 
+// URL slugs for each step (same order as STEPS)
+const STEP_SLUGS = ['requirements', 'overview', 'from-to', 'outline', 'storyboard', 'script', 'watch']
+const SLUG_TO_INDEX = Object.fromEntries(STEP_SLUGS.map((slug, i) => [slug, i]))
+
 const STEP_COMPONENTS = {
   overview: Overview,
   requirements: Requirements,
@@ -38,9 +42,9 @@ const STEP_COMPONENTS = {
 }
 
 export default function DemoView() {
-  const { demoId } = useParams()
+  const { demoId, step: stepSlug } = useParams()
   const navigate = useNavigate()
-  const [currentStep, setCurrentStep] = useState(0)
+  const [currentStep, setCurrentStep] = useState(() => SLUG_TO_INDEX[stepSlug] ?? 0)
   const [data, setData] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -49,6 +53,14 @@ export default function DemoView() {
   const [saveStatus, setSaveStatus] = useState('idle')
   const [pgLastModified, setPgLastModified] = useState(0)
   const isInitialMount = useRef(true)
+
+  // Sync URL slug on mount (redirect /demo/:id → /demo/:id/requirements, or fix invalid slug)
+  useEffect(() => {
+    const expectedSlug = STEP_SLUGS[currentStep]
+    if (stepSlug !== expectedSlug) {
+      navigate(`/demo/${demoId}/${expectedSlug}`, { replace: true })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { ensureToken, isSignedIn } = useGoogleAuth()
   const { mode: storageMode } = useStorageMode()
@@ -478,6 +490,7 @@ If something is already strong, keep it and note why it works in your rationale.
     setTransitionDir(newStep > currentStep ? 'right' : 'left')
     setCurrentStep(newStep)
     setTransitionKey(prev => prev + 1)
+    navigate(`/demo/${demoId}/${STEP_SLUGS[newStep]}`, { replace: true })
   }
 
   // Keyboard navigation
