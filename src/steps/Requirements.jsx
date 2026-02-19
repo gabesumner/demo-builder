@@ -165,7 +165,7 @@ export default function Requirements({ data, onChange, demoName, onDemoNameChang
   }
 
   return (
-    <div className="max-w-2xl mx-auto pt-4">
+    <div className="pt-4">
       {/* Hero section */}
       <div className="text-center mb-8">
         <input
@@ -185,7 +185,7 @@ export default function Requirements({ data, onChange, demoName, onDemoNameChang
       </div>
 
       {/* Requirements section */}
-      <div>
+      <div className="max-w-2xl mx-auto">
         <div className="flex items-center gap-3 mb-6">
           <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700/50 to-transparent" />
           <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Requirements</span>
