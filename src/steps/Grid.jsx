@@ -167,7 +167,24 @@ export default function Grid({ data, onChange, allData, showTitles }) {
             <div className="text-xs text-slate-500 mt-0.5">Screenshot</div>
           </div>
           <div className="px-5 py-4 border-r border-dark-border">
-            <div className="font-semibold text-sm text-slate-200">What You Say</div>
+            <div className="flex items-center gap-2 group/copy">
+              <div className="font-semibold text-sm text-slate-200">What You Say</div>
+              <button
+                onClick={() => {
+                  const text = rows
+                    .map((row, i) => `${i + 1}. ${row.talkTrack || ''}`)
+                    .join('\n')
+                  navigator.clipboard.writeText(text)
+                }}
+                title="Copy talk track to clipboard"
+                className="opacity-0 group-hover/copy:opacity-100 transition-opacity text-slate-500 hover:text-slate-300"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              </button>
+            </div>
             <div className="text-xs text-slate-500 mt-0.5">Talk Track</div>
           </div>
           <div className="px-5 py-4 border-r border-dark-border">
