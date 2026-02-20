@@ -21,7 +21,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
-function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocus, autoResize, setExpandedIndex }) {
+function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocus, autoResize, setExpandedIndex, onContextMenu }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -34,6 +34,7 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
       ref={setNodeRef}
       style={style}
       className="group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 hover:bg-white/[0.01] transition-colors"
+      onContextMenu={e => onContextMenu(e, index)}
     >
       <div className="flex items-center justify-center">
         <button
@@ -107,6 +108,8 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
   const containerRef = useRef(null)
   const focusedCellRef = useRef(null) // { rowIndex, column }
   const rowsRef = useRef(rows)
+  const [contextMenu, setContextMenu] = useState(null) // { x, y, rowIndex }
+  const contextMenuRef = useRef(null)
   rowsRef.current = rows
 
   const sensors = useSensors(
@@ -122,6 +125,23 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
       onChange(arrayMove(rows, oldIndex, newIndex))
     }
   }
+
+  // Dismiss context menu on outside click or Escape
+  useEffect(() => {
+    if (!contextMenu) return
+    function handleClose(e) {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target)) setContextMenu(null)
+    }
+    function handleKey(e) {
+      if (e.key === 'Escape') setContextMenu(null)
+    }
+    document.addEventListener('mousedown', handleClose)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClose)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [contextMenu])
 
   // Pre-populate from outline on first visit when grid is empty
   useEffect(() => {
@@ -151,8 +171,8 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
 
   // --- Smart paste ---
 
-  function insertNewRows(rowData) {
-    const insertAt = focusedCellRef.current ? focusedCellRef.current.rowIndex + 1 : rowsRef.current.length
+  function insertNewRows(rowData, atIndex) {
+    const insertAt = atIndex !== undefined ? atIndex : (focusedCellRef.current ? focusedCellRef.current.rowIndex + 1 : rowsRef.current.length)
     const withIds = rowData.map(r => ({
       id: crypto.randomUUID(),
       screenshot: r.screenshot || '',
@@ -229,6 +249,79 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
       insertNewRows(newRowData)
       return
     }
+  }
+
+  function handleRowContextMenu(e, rowIndex) {
+    e.preventDefault()
+    const menuHeight = 140
+    const menuWidth = 220
+    const y = e.clientY + menuHeight > window.innerHeight ? e.clientY - menuHeight : e.clientY
+    const x = e.clientX + menuWidth > window.innerWidth ? e.clientX - menuWidth : e.clientX
+    setContextMenu({ x, y, rowIndex })
+  }
+
+  function insertBlankRowAt(atIndex) {
+    const newRow = { id: crypto.randomUUID(), screenshot: '', talkTrack: '', clickPath: '' }
+    const next = [...rowsRef.current]
+    next.splice(atIndex, 0, newRow)
+    onChange(next)
+    setContextMenu(null)
+  }
+
+  async function pasteFromClipboard(atIndex) {
+    setContextMenu(null)
+    try {
+      const clipboardItems = await navigator.clipboard.read()
+      for (const item of clipboardItems) {
+        // Path A: HTML table
+        if (item.types.includes('text/html')) {
+          const blob = await item.getType('text/html')
+          const html = await blob.text()
+          const parsed = parseHtmlTable(html)
+          if (parsed && parsed.length > 0) {
+            const mapped = mapTableToRows(parsed)
+            const inserted = insertNewRows(mapped, atIndex)
+            mapped.forEach(async (row, i) => {
+              if (!row.screenshot) return
+              const base64 = await resolveImageSrc(row.screenshot)
+              if (!base64) return
+              const compressed = await compressImage(base64)
+              const updated = rowsRef.current.map(r =>
+                r.id === inserted[i].id ? { ...r, screenshot: compressed } : r
+              )
+              onChange(updated)
+            })
+            return
+          }
+        }
+        // Path B: Image
+        const imageType = item.types.find(t => t.startsWith('image/'))
+        if (imageType) {
+          const placeholder = [{ screenshot: '', talkTrack: '', clickPath: '' }]
+          const inserted = insertNewRows(placeholder, atIndex)
+          try {
+            const blob = await item.getType(imageType)
+            const base64 = await fileToBase64(blob)
+            const compressed = await compressImage(base64)
+            const updated = rowsRef.current.map(r =>
+              r.id === inserted[0].id ? { ...r, screenshot: compressed } : r
+            )
+            onChange(updated)
+          } catch { /* leave screenshot empty */ }
+          return
+        }
+        // Path C: Plain text
+        if (item.types.includes('text/plain')) {
+          const blob = await item.getType('text/plain')
+          const text = await blob.text()
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+          if (lines.length > 0) {
+            insertNewRows(lines.map(line => ({ screenshot: '', talkTrack: line, clickPath: '' })), atIndex)
+          }
+          return
+        }
+      }
+    } catch { /* clipboard access denied or empty */ }
   }
 
   function setFocus(rowIndex, column) {
@@ -331,6 +424,7 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
                   clearFocus={clearFocus}
                   autoResize={autoResize}
                   setExpandedIndex={setExpandedIndex}
+                  onContextMenu={handleRowContextMenu}
                 />
               ))}
             </SortableContext>
@@ -347,6 +441,44 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
         </svg>
         Add row
       </button>
+
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          style={{ position: 'fixed', top: contextMenu.y, left: contextMenu.x, zIndex: 9999 }}
+          className="bg-dark-surface border border-dark-border rounded-xl shadow-2xl py-1.5 min-w-[210px]"
+          onContextMenu={e => e.preventDefault()}
+        >
+          <button
+            onClick={() => insertBlankRowAt(contextMenu.rowIndex)}
+            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
+          >
+            <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Insert blank row above
+          </button>
+          <button
+            onClick={() => insertBlankRowAt(contextMenu.rowIndex + 1)}
+            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
+          >
+            <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Insert blank row below
+          </button>
+          <div className="border-t border-dark-border my-1.5" />
+          <button
+            onClick={() => pasteFromClipboard(contextMenu.rowIndex + 1)}
+            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
+          >
+            <svg className="w-4 h-4 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-3-3v6M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V9l-6-6z" />
+            </svg>
+            Paste items below
+          </button>
+        </div>
+      )}
 
       {expandedIndex !== null && rows[expandedIndex]?.screenshot && (
         <ImageLightbox
