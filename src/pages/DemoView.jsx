@@ -669,6 +669,7 @@ If something is already strong, keep it and note why it works in your rationale.
             demoName={demoName}
             onDemoNameChange={handleDemoNameChange}
             showTitles={showTitles}
+            showToast={showToast}
           />
         </div>
       </div>
