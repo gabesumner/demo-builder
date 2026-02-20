@@ -4,6 +4,102 @@ import ImageLightbox from '../components/ImageLightbox'
 import AutoHideTitle from '../components/AutoHideTitle'
 import { parseHtmlTable, mapTableToRows, resolveImageSrc } from '../utils/pasteParser'
 import { fileToBase64, compressImage } from '../utils/imageUtils'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+
+function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocus, autoResize, setExpandedIndex }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: row.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 hover:bg-white/[0.01] transition-colors"
+    >
+      <div className="flex items-center justify-center">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-slate-700 hover:text-slate-500 p-0.5 bg-transparent border-none opacity-0 group-hover/row:opacity-60 hover:!opacity-100 transition-opacity"
+          aria-label="Drag to reorder"
+        >
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="9" cy="7" r="1.5" />
+            <circle cx="15" cy="7" r="1.5" />
+            <circle cx="9" cy="12" r="1.5" />
+            <circle cx="15" cy="12" r="1.5" />
+            <circle cx="9" cy="17" r="1.5" />
+            <circle cx="15" cy="17" r="1.5" />
+          </svg>
+        </button>
+      </div>
+      <div className="p-4 border-r border-dark-border" data-image-upload
+        onFocus={() => setFocus(index, 'screenshot')}
+        onBlur={clearFocus}
+      >
+        <ImageUpload
+          value={row.screenshot}
+          onChange={img => updateRow(index, { screenshot: img })}
+          className="h-28"
+          compact
+          onExpand={() => setExpandedIndex(index)}
+        />
+      </div>
+      <div className="p-4 border-r border-dark-border">
+        <textarea
+          value={row.talkTrack}
+          onChange={e => { updateRow(index, { talkTrack: e.target.value }); autoResize(e.target) }}
+          onFocus={() => setFocus(index, 'talkTrack')}
+          onBlur={clearFocus}
+          ref={autoResize}
+          placeholder="What you say at this step..."
+          className="w-full bg-transparent border border-transparent rounded-lg px-3 py-2 text-[15px] text-slate-300 leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
+        />
+      </div>
+      <div className="p-4 border-r border-dark-border">
+        <textarea
+          value={row.clickPath}
+          onChange={e => { updateRow(index, { clickPath: e.target.value }); autoResize(e.target) }}
+          onFocus={() => setFocus(index, 'clickPath')}
+          onBlur={clearFocus}
+          ref={autoResize}
+          placeholder="Navigation steps to get here..."
+          className="w-full bg-transparent border border-transparent rounded-lg px-3 py-2 text-[15px] text-slate-300 leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
+        />
+      </div>
+      <div className="flex items-center justify-center">
+        <button
+          onClick={() => removeRow(index)}
+          className="text-slate-700 hover:text-red-400 transition-all cursor-pointer bg-transparent border-none p-1 opacity-0 group-hover/row:opacity-100"
+          title="Delete row"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function Grid({ data, onChange, allData, showTitles, showToast }) {
   const rows = data || []
@@ -12,6 +108,20 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
   const focusedCellRef = useRef(null) // { rowIndex, column }
   const rowsRef = useRef(rows)
   rowsRef.current = rows
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
+
+  function handleDragEnd(event) {
+    const { active, over } = event
+    if (active.id !== over?.id) {
+      const oldIndex = rows.findIndex(r => r.id === active.id)
+      const newIndex = rows.findIndex(r => r.id === over.id)
+      onChange(arrayMove(rows, oldIndex, newIndex))
+    }
+  }
 
   // Pre-populate from outline on first visit when grid is empty
   useEffect(() => {
@@ -161,7 +271,8 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
 
       <div className="bg-dark-surface rounded-2xl border border-dark-border overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
         {/* Header */}
-        <div className="grid grid-cols-[242px_1fr_0.81fr_40px] bg-dark-bg/60 border-b border-dark-border">
+        <div className="grid grid-cols-[28px_242px_1fr_0.81fr_40px] bg-dark-bg/60 border-b border-dark-border">
+          <div />
           <div className="px-5 py-4 border-r border-dark-border">
             <div className="font-semibold text-sm text-slate-200">What You See</div>
             <div className="text-xs text-slate-500 mt-0.5">Screenshot</div>
@@ -207,55 +318,23 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
             No rows yet. {allData?.outline?.length > 0 ? 'Rows will pre-populate from your outline.' : 'Add your first row below.'}
           </div>
         ) : (
-          rows.map((row, i) => (
-            <div key={row.id} className="group/row grid grid-cols-[242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 hover:bg-white/[0.01] transition-colors">
-              <div className="p-4 border-r border-dark-border" data-image-upload
-                onFocus={() => setFocus(i, 'screenshot')}
-                onBlur={clearFocus}
-              >
-                <ImageUpload
-                  value={row.screenshot}
-                  onChange={img => updateRow(i, { screenshot: img })}
-                  className="h-28"
-                  compact
-                  onExpand={() => setExpandedIndex(i)}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
+              {rows.map((row, i) => (
+                <SortableGridRow
+                  key={row.id}
+                  row={row}
+                  index={i}
+                  updateRow={updateRow}
+                  removeRow={removeRow}
+                  setFocus={setFocus}
+                  clearFocus={clearFocus}
+                  autoResize={autoResize}
+                  setExpandedIndex={setExpandedIndex}
                 />
-              </div>
-              <div className="p-4 border-r border-dark-border">
-                <textarea
-                  value={row.talkTrack}
-                  onChange={e => { updateRow(i, { talkTrack: e.target.value }); autoResize(e.target) }}
-                  onFocus={() => setFocus(i, 'talkTrack')}
-                  onBlur={clearFocus}
-                  ref={autoResize}
-                  placeholder="What you say at this step..."
-                  className="w-full bg-transparent border border-transparent rounded-lg px-3 py-2 text-[15px] text-slate-300 leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
-                />
-              </div>
-              <div className="p-4 border-r border-dark-border">
-                <textarea
-                  value={row.clickPath}
-                  onChange={e => { updateRow(i, { clickPath: e.target.value }); autoResize(e.target) }}
-                  onFocus={() => setFocus(i, 'clickPath')}
-                  onBlur={clearFocus}
-                  ref={autoResize}
-                  placeholder="Navigation steps to get here..."
-                  className="w-full bg-transparent border border-transparent rounded-lg px-3 py-2 text-[15px] text-slate-300 leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
-                />
-              </div>
-              <div className="flex items-center justify-center">
-                <button
-                  onClick={() => removeRow(i)}
-                  className="text-slate-700 hover:text-red-400 transition-all cursor-pointer bg-transparent border-none p-1 opacity-0 group-hover/row:opacity-100"
-                  title="Delete row"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          ))
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
 
