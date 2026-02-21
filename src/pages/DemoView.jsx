@@ -342,15 +342,15 @@ export default function DemoView() {
     const plainParts = []
 
     // Demo title
-    htmlParts.push(`<b>${esc(demoName)}</b><br><br>`)
-    plainParts.push(demoName, '')
+    htmlParts.push(`<h1><b>${esc(demoName)}</b></h1>`)
+    plainParts.push(demoName)
 
     // Requirements
     const { items: reqItems, goal } = getRequirementsData()
     if (reqItems.length > 0 || goal) {
-      htmlParts.push(`<b>Requirements</b><br>`)
-      plainParts.push('Requirements')
-      if (goal) { htmlParts.push(`<i>${esc(goal)}</i><br>`); plainParts.push(goal) }
+      htmlParts.push(`<h2><br><b>Requirements</b></h2>`)
+      plainParts.push('', 'Requirements')
+      if (goal) { htmlParts.push(`<p><i>${esc(goal)}</i></p>`); plainParts.push(goal) }
       if (reqItems.length > 0) {
         htmlParts.push(`<ul>${reqItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ul>`)
         reqItems.forEach(i => plainParts.push(`• ${i.text}`))
@@ -361,22 +361,22 @@ export default function DemoView() {
     const overview = data?.overview || {}
     const { headline = '', socialPostText = '', posterName = '', posterTitle = '' } = overview
     if (posterName || socialPostText || headline) {
-      htmlParts.push(`<b>Takeaway</b><br>`)
+      htmlParts.push(`<h2><br><b>Takeaway</b></h2>`)
       plainParts.push('', 'Takeaway')
       if (posterName) {
         const namePart = posterTitle ? `${esc(posterName)} — ${esc(posterTitle)}` : esc(posterName)
-        htmlParts.push(`${namePart}<br>`)
+        htmlParts.push(`<p><b>${namePart}</b></p>`)
         plainParts.push(posterTitle ? `${posterName} — ${posterTitle}` : posterName)
       }
-      if (socialPostText) { htmlParts.push(`${esc(socialPostText)}<br>`); plainParts.push(socialPostText) }
-      if (headline) { htmlParts.push(`<i>Video Thumbnail Title: ${esc(headline)}</i><br>`); plainParts.push(`Video Thumbnail Title: ${headline}`) }
+      if (socialPostText) { htmlParts.push(`<p>${esc(socialPostText)}</p>`); plainParts.push(socialPostText) }
+      if (headline) { htmlParts.push(`<p><i>Video Thumbnail Title: ${esc(headline)}</i></p>`); plainParts.push(`Video Thumbnail Title: ${headline}`) }
     }
 
     // From/To Shift
     const ftData = data?.fromTo || {}
     const { from = { text: '' }, to = { text: '' } } = ftData
     if (from.text || to.text) {
-      htmlParts.push(`<br><b>From/To Shift</b>`)
+      htmlParts.push(`<h2><br><b>From/To Shift</b></h2>`)
       plainParts.push('', 'From/To Shift')
       htmlParts.push(`<ul><li>Without the product${from.text ? `<ul><li>${esc(from.text)}</li></ul>` : ''}</li><li>With the product${to.text ? `<ul><li>${esc(to.text)}</li></ul>` : ''}</li></ul>`)
       plainParts.push(`• Without the product${from.text ? `\n  • ${from.text}` : ''}`, `• With the product${to.text ? `\n  • ${to.text}` : ''}`)
@@ -385,19 +385,28 @@ export default function DemoView() {
     // Storyboard
     const panels = (data?.storyboard || []).filter(p => p.label || p.text)
     if (panels.length > 0) {
-      htmlParts.push(`<br><b>Storyboard</b>`)
+      htmlParts.push(`<h2><br><b>Storyboard</b></h2>`)
       plainParts.push('', 'Storyboard')
-      htmlParts.push(`<ul>${panels.map(p => `<li>${esc(p.label || '')}${p.text ? `<ul><li>${esc(p.text)}</li></ul>` : ''}</li>`).join('')}</ul>`)
+      htmlParts.push(`<ul>${panels.map(p => `<li><b>${esc(p.label || '')}</b>${p.text ? `<ul><li>${esc(p.text)}</li></ul>` : ''}</li>`).join('')}</ul>`)
       panels.forEach(p => plainParts.push(`• ${p.label || ''}${p.text ? `\n  • ${p.text}` : ''}`))
     }
 
     // Outline
     const outlineItems = (data?.outline || []).filter(i => i.text)
     if (outlineItems.length > 0) {
-      htmlParts.push(`<b>Outline</b>`)
+      htmlParts.push(`<h2><br><b>Outline</b></h2>`)
       plainParts.push('', 'Outline')
       htmlParts.push(`<ol>${outlineItems.map(i => `<li>${esc(i.text)}</li>`).join('')}</ol>`)
       outlineItems.forEach((i, idx) => plainParts.push(`${idx + 1}. ${i.text}`))
+    }
+
+    // Script (Talk Track)
+    const gridRows = (data?.grid || []).filter(r => r.talkTrack)
+    if (gridRows.length > 0) {
+      htmlParts.push(`<h2><br><b>Script</b></h2>`)
+      plainParts.push('', 'Script')
+      htmlParts.push(`<ol>${gridRows.map(r => `<li>${esc(r.talkTrack || '')}</li>`).join('')}</ol>`)
+      gridRows.forEach((r, idx) => plainParts.push(`${idx + 1}. ${r.talkTrack || ''}`))
     }
 
     if (htmlParts.length <= 1) return
