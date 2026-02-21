@@ -33,7 +33,7 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
     <div
       ref={setNodeRef}
       style={style}
-      className="group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 hover:bg-white/[0.01] transition-colors"
+      className={`group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 transition-colors ${row.highlighted ? 'bg-amber-500/[0.07] hover:bg-amber-500/[0.11]' : 'hover:bg-white/[0.01]'}`}
       onContextMenu={e => onContextMenu(e, index)}
     >
       <div className="flex items-center justify-center">
@@ -253,7 +253,7 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
 
   function handleRowContextMenu(e, rowIndex) {
     e.preventDefault()
-    const menuHeight = 140
+    const menuHeight = 190
     const menuWidth = 220
     const y = e.clientY + menuHeight > window.innerHeight ? e.clientY - menuHeight : e.clientY
     const x = e.clientX + menuWidth > window.innerWidth ? e.clientX - menuWidth : e.clientX
@@ -264,6 +264,12 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
     const newRow = { id: crypto.randomUUID(), screenshot: '', talkTrack: '', clickPath: '' }
     const next = [...rowsRef.current]
     next.splice(atIndex, 0, newRow)
+    onChange(next)
+    setContextMenu(null)
+  }
+
+  function toggleHighlight(rowIndex) {
+    const next = rowsRef.current.map((r, i) => i === rowIndex ? { ...r, highlighted: !r.highlighted } : r)
     onChange(next)
     setContextMenu(null)
   }
@@ -476,6 +482,16 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-3-3v6M9 3H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V9l-6-6z" />
             </svg>
             Paste items below
+          </button>
+          <div className="border-t border-dark-border my-1.5" />
+          <button
+            onClick={() => toggleHighlight(contextMenu.rowIndex)}
+            className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
+          >
+            <svg className="w-4 h-4 shrink-0 text-amber-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+            </svg>
+            {rows[contextMenu.rowIndex]?.highlighted ? 'Clear highlight' : 'Highlight row'}
           </button>
         </div>
       )}
