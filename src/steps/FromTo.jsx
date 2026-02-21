@@ -1,8 +1,22 @@
+import { useRef, useEffect } from 'react'
 import ImageUpload from '../components/ImageUpload'
 import AutoHideTitle from '../components/AutoHideTitle'
 
 export default function FromTo({ data, onChange, showTitles }) {
   const { from = { image: '', text: '' }, to = { image: '', text: '' } } = data || {}
+  const fromRef = useRef(null)
+  const toRef = useRef(null)
+
+  useEffect(() => {
+    const fromEl = fromRef.current
+    const toEl = toRef.current
+    if (!fromEl || !toEl) return
+    fromEl.style.height = 'auto'
+    toEl.style.height = 'auto'
+    const maxHeight = Math.max(fromEl.scrollHeight, toEl.scrollHeight)
+    fromEl.style.height = `${maxHeight}px`
+    toEl.style.height = `${maxHeight}px`
+  }, [from.text, to.text])
 
   function updateSide(side, fields) {
     onChange({ ...data, [side]: { ...data[side], ...fields } })
@@ -33,11 +47,11 @@ export default function FromTo({ data, onChange, showTitles }) {
             className="aspect-video mb-5"
           />
           <textarea
+            ref={fromRef}
             value={from.text}
             onChange={e => updateSide('from', { text: e.target.value })}
             placeholder="Describe the pain point..."
-            rows={4}
-            className="w-full bg-transparent border border-transparent rounded-xl px-4 py-3 text-slate-300 text-[15px] leading-relaxed placeholder-slate-600 resize-none focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
+            className="w-full bg-transparent border border-transparent rounded-xl px-4 py-3 text-slate-300 text-[15px] leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
           />
         </div>
 
@@ -73,11 +87,11 @@ export default function FromTo({ data, onChange, showTitles }) {
             className="aspect-video mb-5"
           />
           <textarea
+            ref={toRef}
             value={to.text}
             onChange={e => updateSide('to', { text: e.target.value })}
             placeholder="Describe the improved state..."
-            rows={4}
-            className="w-full bg-transparent border border-transparent rounded-xl px-4 py-3 text-slate-300 text-[15px] leading-relaxed placeholder-slate-600 resize-none focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
+            className="w-full bg-transparent border border-transparent rounded-xl px-4 py-3 text-slate-300 text-[15px] leading-relaxed placeholder-slate-600 resize-none overflow-hidden focus:outline-none focus:bg-dark-bg/50 focus:border-sf-blue/30 hover:border-dark-border/50 transition-colors"
           />
         </div>
       </div>
