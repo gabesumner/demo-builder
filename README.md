@@ -16,24 +16,31 @@ Demo Builder breaks demo creation into seven sequential steps:
 
 Navigate between steps using the top nav bar or the left/right arrow keys.
 
+### Image Handling
+
+Images are stored **out-of-band** — separately from the demo's JSON data — and referenced by ID. This preserves full-resolution originals without bloating autosaves or sync payloads.
+
+- **Local mode** — images are stored as full-resolution PNGs in IndexedDB.
+- **Postgres mode** — images are stored in a dedicated `images` table and served at `/images/:id` with immutable cache headers. Right-clicking an image and choosing "Save Image As" gives a meaningful filename.
+- **Migration** — demos that contain legacy inline base64 images (from older versions) are automatically migrated to out-of-band storage the first time they are saved.
+
 ### Storage & Sync
 
 - **Local storage** — Demos are saved automatically to IndexedDB in the browser.
-- **Google Drive** — Optionally sign in with Google to save demos to Drive, with background polling for external changes. Demos can be moved between local and Drive storage at any time.
-- **PostgreSQL** — When a `DATABASE_URL` is configured on the server, all demos are stored in a Postgres database instead. Google Drive is not available in this mode.
-- **Import / Export** — Demos can be exported as JSON files and imported on another machine.
+- **PostgreSQL** — When a `DATABASE_URL` is configured on the server, all demos and images are stored in a Postgres database.
+- **Import / Export** — Demos are exported as **ZIP files** containing `demo.json` and a `images/` folder with all referenced images. Legacy JSON exports from older versions can still be imported.
 
 ### Auto-Save Behavior
 
 All changes are saved automatically — there is no manual save button.
 
-- Saves are **debounced**: after you stop making changes, a short delay fires before writing. Local saves use a ~400ms delay; remote saves (Drive or Postgres) use ~2 seconds to avoid excessive network requests.
+- Saves are **debounced**: after you stop making changes, a short delay fires before writing. Local saves use a ~400ms delay; Postgres saves use ~2 seconds to avoid excessive network requests.
 - A **save status indicator** in the top bar shows when a save is in-flight and confirms when it completes.
 - On page close or refresh, any pending changes are **flushed immediately** to localStorage as a safety net and recovered on the next load, guarding against data loss if the network is slow.
 
-### Remote Change Loading
+### Remote Change Detection
 
-When using Google Drive or PostgreSQL, the app polls for external changes every 30 seconds.
+When using PostgreSQL, the app polls for external changes every 30 seconds.
 
 - Polling checks only a **lightweight metadata endpoint** (last-modified timestamp) before deciding whether to fetch full data, keeping background traffic minimal.
 - Polling is **paused while the tab is hidden** and resumes when you switch back.
@@ -65,17 +72,6 @@ npm start          # serves the production build on port 3000 (or $PORT)
 
 All configuration is done via environment variables. Create a `.env` file in the project root (for local dev) or set these as config vars in your hosting environment.
 
-### Google Drive Integration (Optional)
-
-To enable Google Drive sync, set:
-
-```
-VITE_GOOGLE_CLIENT_ID=your-google-oauth-client-id
-VITE_GOOGLE_API_KEY=your-google-api-key
-```
-
-These come from a Google Cloud project with the Google Drive API enabled and an OAuth 2.0 client ID configured. Without these variables the app works fully in local-only mode. Google Drive is not available when a `DATABASE_URL` is also set.
-
 ### PostgreSQL (Optional)
 
 Set a Postgres connection string to switch the app into database mode:
@@ -84,7 +80,7 @@ Set a Postgres connection string to switch the app into database mode:
 DATABASE_URL=postgres://user:password@host:5432/dbname
 ```
 
-When this is set, all demo data is stored in a `demos` table which is created automatically on startup. Google Drive integration is disabled in this mode.
+When this is set, all demo data and images are stored in Postgres tables which are created automatically on startup.
 
 For remote databases (e.g. Heroku Postgres), SSL is enabled automatically. For `localhost`, SSL is skipped.
 
@@ -96,7 +92,7 @@ To restrict access to the app with HTTP Basic Auth, set:
 SITE_PASSWORD=your-password
 ```
 
-When set, the browser will prompt for a password before allowing access. Any username is accepted; only the password is checked. Credentials are cached by the browser for the session. This protects all API endpoints; it does not apply to statically served files in production.
+When set, the browser will prompt for a password before allowing access. Any username is accepted; only the password is checked. Credentials are cached by the browser for the session.
 
 ## Deploying to Heroku
 
@@ -105,13 +101,9 @@ When set, the browser will prompt for a password before allowing access. Any use
 
 ```bash
 heroku config:set SITE_PASSWORD=your-password
-heroku config:set VITE_GOOGLE_CLIENT_ID=...   # only if using Drive
-heroku config:set VITE_GOOGLE_API_KEY=...     # only if using Drive
 ```
 
 `DATABASE_URL` is set automatically by the Heroku Postgres add-on.
-
-> **Note:** `VITE_*` variables are embedded at **build time**. If you change them, you must redeploy (re-run the build) for them to take effect.
 
 3. Push and deploy:
 
@@ -126,5 +118,6 @@ Heroku will run `npm run build` and then `npm start`. The server listens on `$PO
 - React 19, Vite 7, Tailwind CSS 4
 - dnd-kit for drag-and-drop
 - react-router-dom for routing
-- IndexedDB + Google Drive API + PostgreSQL for storage
+- IndexedDB (local) + PostgreSQL (server) for image and demo storage
+- JSZip for ZIP-based export/import
 - Express for the production server and API
