@@ -59,7 +59,6 @@ export default function ImageLightbox({ src, onClose, title, caption, onPrev, on
       {/* Content — fixed vertical structure */}
       <div
         className="flex flex-col items-center max-w-[85vw] w-full"
-        onClick={e => e.stopPropagation()}
         style={{ height: '85vh' }}
       >
         {/* Top zone: counter + title — fixed height */}
@@ -82,6 +81,7 @@ export default function ImageLightbox({ src, onClose, title, caption, onPrev, on
             src={resolvedSrc || ''}
             alt="Full view"
             className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={e => e.stopPropagation()}
           />
         </div>
 
