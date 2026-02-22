@@ -11,6 +11,18 @@ import {
 import ImageUpload from '../components/ImageUpload'
 import ImageLightbox from '../components/ImageLightbox'
 import AutoHideTitle from '../components/AutoHideTitle'
+import { useImage } from '../hooks/useImage'
+
+function DragImage({ value }) {
+  const src = useImage(value)
+  return (
+    <img
+      src={src || ''}
+      alt="Dragging"
+      className="w-48 aspect-video object-cover rounded-lg shadow-2xl opacity-80"
+    />
+  )
+}
 
 const DEFAULT_PANELS = [
   'Context', 'Challenge', 'Solution 1', 'Solution 2',
@@ -59,7 +71,6 @@ function StoryboardPanel({ id, panel, onUpdate, onExpand, isDragSource }) {
             className="aspect-video mb-3"
             compact
             onExpand={onExpand}
-            maxDim={6000}
           />
         </div>
         <textarea
@@ -145,11 +156,7 @@ export default function Storyboard({ data, onChange, showTitles }) {
         </div>
         <DragOverlay>
           {activeDragIndex !== null && panels[activeDragIndex]?.image && (
-            <img
-              src={panels[activeDragIndex].image}
-              alt="Dragging"
-              className="w-48 aspect-video object-cover rounded-lg shadow-2xl opacity-80"
-            />
+            <DragImage value={panels[activeDragIndex].image} />
           )}
         </DragOverlay>
       </DndContext>

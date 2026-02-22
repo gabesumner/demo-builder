@@ -26,6 +26,14 @@ export async function initDb() {
         last_modified BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
       )
     `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS images (
+        id         TEXT PRIMARY KEY,
+        data       BYTEA NOT NULL,
+        mime_type  TEXT NOT NULL DEFAULT 'image/png',
+        created_at BIGINT NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW()) * 1000)::BIGINT
+      )
+    `);
   } finally {
     client.release();
   }

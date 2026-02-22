@@ -115,6 +115,43 @@ if (process.env.DATABASE_URL) {
     await getPool().query("DELETE FROM demos WHERE id = $1", [req.params.id]);
     res.status(204).end();
   });
+
+  // --- Image API ---
+
+  // Upload new image — server generates ID
+  app.post("/api/images", express.raw({ type: "image/*", limit: "50mb" }), async (req, res) => {
+    const id = `img_${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
+    const mimeType = req.headers["content-type"] || "image/png";
+    await getPool().query(
+      "INSERT INTO images (id, data, mime_type) VALUES ($1, $2, $3)",
+      [id, req.body, mimeType]
+    );
+    res.json({ id });
+  });
+
+  // Upsert image with caller-specified ID (used by ZIP import to preserve references)
+  app.put("/api/images/:id", express.raw({ type: "image/*", limit: "50mb" }), async (req, res) => {
+    const { id } = req.params;
+    const mimeType = req.headers["content-type"] || "image/png";
+    await getPool().query(
+      "INSERT INTO images (id, data, mime_type) VALUES ($1, $2, $3) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, mime_type = EXCLUDED.mime_type",
+      [id, req.body, mimeType]
+    );
+    res.json({ id });
+  });
+
+  // Serve image — clean URL gives a good filename on "Save Image As"
+  app.get("/images/:id", async (req, res) => {
+    const { rows } = await getPool().query(
+      "SELECT data, mime_type FROM images WHERE id = $1",
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).end();
+    res.set("Content-Type", rows[0].mime_type);
+    res.set("Cache-Control", "public, max-age=31536000, immutable");
+    res.set("Content-Disposition", `inline; filename="${req.params.id}.png"`);
+    res.send(rows[0].data);
+  });
 }
 
 app.use(express.static(join(__dirname, "dist")));

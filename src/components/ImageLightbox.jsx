@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useImage } from '../hooks/useImage'
 
 export default function ImageLightbox({ src, onClose, title, caption, onPrev, onNext, panelIndex, totalPanels }) {
+  const resolvedSrc = useImage(src)
+
   useEffect(() => {
     function handleKey(e) {
       if (e.key === 'Escape') { e.stopImmediatePropagation(); onClose() }
@@ -76,7 +79,7 @@ export default function ImageLightbox({ src, onClose, title, caption, onPrev, on
         {/* Image zone — fixed height, image fits within */}
         <div className="flex-none flex items-center justify-center" style={{ height: '65vh' }}>
           <img
-            src={src}
+            src={resolvedSrc || ''}
             alt="Full view"
             className="max-w-full max-h-full object-contain rounded-lg"
           />

@@ -1,19 +1,24 @@
 import { useRef, useState } from 'react'
-import { fileToBase64, compressImage } from '../utils/imageUtils'
+import { fileToBase64, storeImage } from '../utils/imageUtils'
+import { useStorageMode } from '../contexts/StorageModeContext'
+import { useImage } from '../hooks/useImage'
 import ImageLightbox from './ImageLightbox'
 
-export default function ImageUpload({ value, onChange, className = '', compact = false, onExpand, maxDim }) {
+export default function ImageUpload({ value, onChange, className = '', compact = false, onExpand }) {
   const inputRef = useRef(null)
   const containerRef = useRef(null)
   const [flashPaste, setFlashPaste] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
+  const { mode } = useStorageMode()
+  const isPostgres = mode === 'postgres'
+  const displaySrc = useImage(value)
 
   async function handleFile(e) {
     const file = e.target.files?.[0]
     if (!file) return
     const base64 = await fileToBase64(file)
-    const compressed = await compressImage(base64, maxDim)
-    onChange(compressed)
+    const result = await storeImage(base64, isPostgres)
+    onChange(result)
     e.target.value = ''
   }
 
@@ -25,8 +30,8 @@ export default function ImageUpload({ value, onChange, className = '', compact =
         e.preventDefault()
         const blob = item.getAsFile()
         const base64 = await fileToBase64(blob)
-        const compressed = await compressImage(base64, maxDim)
-        onChange(compressed)
+        const result = await storeImage(base64, isPostgres)
+        onChange(result)
         setFlashPaste(true)
         setTimeout(() => setFlashPaste(false), 600)
         return
@@ -43,7 +48,7 @@ export default function ImageUpload({ value, onChange, className = '', compact =
         className={`relative group outline-none rounded-lg flex items-center justify-center ${flashPaste ? 'paste-flash' : ''} ${className}`}
       >
         <img
-          src={value}
+          src={displaySrc || ''}
           alt="Uploaded"
           className="max-w-full max-h-full rounded-lg cursor-zoom-in"
           onClick={() => onExpand ? onExpand() : setLightboxOpen(true)}

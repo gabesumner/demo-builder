@@ -1,12 +1,10 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getDemoData, getDemoList, updateDemoName, setThumbnailCache } from '../utils/storage'
-import { getDriveDemoData } from '../utils/driveStorage'
 import { getDemoDataFromApi, updateDemoNameInApi } from '../utils/apiStorage'
 import { useAutosave } from '../utils/useAutosave'
-import { useGoogleAuth } from '../contexts/GoogleAuthContext'
+import { migrateInlineImages } from '../utils/imageUtils'
 import { useStorageMode } from '../contexts/StorageModeContext'
-import { useDrivePolling } from '../hooks/useDrivePolling'
 import { useApiPolling } from '../hooks/useApiPolling'
 import SaveStatusIndicator from '../components/SaveStatusIndicator'
 import Overview from '../steps/Overview'
@@ -62,17 +60,10 @@ export default function DemoView() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { ensureToken, isSignedIn } = useGoogleAuth()
   const { mode: storageMode } = useStorageMode()
   const isPostgres = storageMode === 'postgres'
 
-  // Look up demo metadata
-  const demoMeta = useMemo(() => isPostgres ? null : getDemoList().find(d => d.id === demoId), [demoId, isPostgres])
-  const storage = isPostgres ? 'postgres' : (demoMeta?.storage || 'local')
-  const driveFileId = demoMeta?.driveFileId || null
-
-  // Stable token getter for hooks
-  const getToken = useCallback(() => ensureToken(), [ensureToken])
+  const storage = isPostgres ? 'postgres' : 'local'
 
   // Save status callback
   const onSaveStatus = useCallback((status) => setSaveStatus(status), [])
@@ -82,9 +73,7 @@ export default function DemoView() {
 
   const save = useAutosave(demoId, {
     storage,
-    driveFileId,
-    getToken: storage === 'drive' ? getToken : null,
-    onSaveStatus: (storage === 'drive' || storage === 'postgres') ? onSaveStatus : null,
+    onSaveStatus: storage === 'postgres' ? onSaveStatus : null,
     onSaveComplete: storage === 'postgres' ? onSaveComplete : null,
   })
 
@@ -102,10 +91,6 @@ export default function DemoView() {
             setPgDemoName(result.name)
             setPgLastModified(result.lastModified)
           }
-        } else if (storage === 'drive' && driveFileId) {
-          const token = await ensureToken()
-          const driveData = await getDriveDemoData(token, driveFileId)
-          if (!cancelled) setData(driveData)
         } else {
           const localData = await getDemoData(demoId)
           if (!cancelled) setData(localData)
@@ -114,16 +99,15 @@ export default function DemoView() {
         console.error('Failed to load demo:', err)
         if (!cancelled) {
           if (storage !== 'postgres') {
-            // Try local shadow copy
-            const shadow = await getDemoData(demoId)
-            if (shadow && Object.keys(shadow).length > 0) {
-              setData(shadow)
-            } else {
-              setLoadError(err)
-            }
+          const shadow = await getDemoData(demoId)
+          if (shadow && Object.keys(shadow).length > 0) {
+            setData(shadow)
           } else {
             setLoadError(err)
           }
+        } else {
+          setLoadError(err)
+        }
         }
       } finally {
         if (!cancelled) setIsLoading(false)
@@ -131,7 +115,7 @@ export default function DemoView() {
     }
     load()
     return () => { cancelled = true }
-  }, [demoId, storage, driveFileId, ensureToken])
+  }, [demoId, storage])
 
   // --- Auto-save whenever data changes (skip initial load) ---
   useEffect(() => {
@@ -140,33 +124,29 @@ export default function DemoView() {
       return
     }
     if (!data) return
-    save(data)
-    // Update thumbnail cache so Home page can render without loading full data
-    if (data.overview) {
-      setThumbnailCache(demoId, data.overview)
+
+    async function runAndSave() {
+      // Migrate any legacy inline data: URI images to IDB / server before saving.
+      const { migrated, didMigrate } = await migrateInlineImages(data, isPostgres)
+      if (didMigrate) {
+        setData(migrated) // triggers another cycle; migrated data saves on the next pass
+        return
+      }
+      save(data)
+      // Update thumbnail cache so Home page can render without loading full data
+      if (data.overview) setThumbnailCache(demoId, data.overview)
     }
+    runAndSave()
   }, [data, save, demoId])
 
-  // --- Polling for external changes ---
-  const [lastModifiedTime, setLastModifiedTime] = useState(demoMeta?.driveModifiedTime)
-
+  // --- Polling for external changes (Postgres only) ---
   const handleExternalChange = useCallback((newData, newName, newModifiedTime) => {
     setData(newData)
     if (newName) setDemoName(newName)
-    if (isPostgres) {
-      setPgLastModified(newModifiedTime)
-    } else {
-      setLastModifiedTime(newModifiedTime)
-    }
+    if (newModifiedTime) setPgLastModified(newModifiedTime)
     isInitialMount.current = true // Prevent re-save of externally loaded data
     setTimeout(() => { isInitialMount.current = false }, 100)
-  }, [isPostgres])
-
-  useDrivePolling(driveFileId, lastModifiedTime, {
-    enabled: storage === 'drive' && !isPostgres && isSignedIn && !isLoading,
-    getToken,
-    onExternalChange: handleExternalChange,
-  })
+  }, [])
 
   useApiPolling(demoId, pgLastModified, {
     enabled: isPostgres && !isLoading,

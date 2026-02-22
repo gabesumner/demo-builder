@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import { GoogleAuthProvider } from './contexts/GoogleAuthContext'
 import { StorageModeProvider } from './contexts/StorageModeContext'
 import { migrateFromLocalStorage } from './utils/idbStorage'
 import './index.css'
@@ -12,9 +11,7 @@ migrateFromLocalStorage().then(() => {
     <StrictMode>
       <BrowserRouter>
         <StorageModeProvider>
-          <GoogleAuthProvider>
-            <App />
-          </GoogleAuthProvider>
+          <App />
         </StorageModeProvider>
       </BrowserRouter>
     </StrictMode>,

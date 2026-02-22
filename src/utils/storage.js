@@ -128,38 +128,6 @@ export async function importDemos(json) {
   return count;
 }
 
-// --- Drive integration helpers ---
-
-export function mergeDriveEntries(driveEntries) {
-  const list = getDemoList();
-  for (const entry of driveEntries) {
-    const existingIdx = list.findIndex(d => d.driveFileId === entry.driveFileId);
-    if (existingIdx !== -1) {
-      list[existingIdx] = { ...list[existingIdx], ...entry };
-    } else {
-      list.push(entry);
-    }
-  }
-  saveDemoList(list);
-}
-
-export function updateDemoStorage(demoId, fields) {
-  const list = getDemoList();
-  const idx = list.findIndex(d => d.id === demoId);
-  if (idx !== -1) {
-    list[idx] = { ...list[idx], ...fields };
-    saveDemoList(list);
-  }
-}
-
-export async function removeLocalData(demoId) {
-  localStorage.removeItem(`demo_${demoId}`);
-  try {
-    await idbDelete(demoId);
-  } catch {
-    // Ignore
-  }
-}
 
 export function getThumbnailCache(demoId) {
   try {

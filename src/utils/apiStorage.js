@@ -63,5 +63,17 @@ export async function checkPgModified(demoId, sinceTimestamp) {
   return { modified: lastModified > sinceTimestamp, lastModified }
 }
 
+// --- Image API ---
+
+export async function saveImageToApi(blob) {
+  const res = await fetch('/api/images', {
+    method: 'POST',
+    headers: { 'Content-Type': blob.type || 'image/png' },
+    body: blob,
+  });
+  if (!res.ok) throw new Error('Failed to save image');
+  return res.json(); // { id }
+}
+
 // Re-export thumbnail cache helpers — these stay in localStorage
 export { getThumbnailCache, setThumbnailCache };

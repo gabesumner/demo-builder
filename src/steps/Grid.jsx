@@ -3,7 +3,8 @@ import ImageUpload from '../components/ImageUpload'
 import ImageLightbox from '../components/ImageLightbox'
 import AutoHideTitle from '../components/AutoHideTitle'
 import { parseHtmlTable, mapTableToRows, resolveImageSrc } from '../utils/pasteParser'
-import { fileToBase64, compressImage } from '../utils/imageUtils'
+import { fileToBase64, storeImage } from '../utils/imageUtils'
+import { useStorageMode } from '../contexts/StorageModeContext'
 import {
   DndContext,
   closestCenter,
@@ -103,6 +104,8 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
 }
 
 export default function Grid({ data, onChange, allData, showTitles, showToast }) {
+  const { mode } = useStorageMode()
+  const isPostgres = mode === 'postgres'
   const rows = data || []
   const [expandedIndex, setExpandedIndex] = useState(null)
   const containerRef = useRef(null)
@@ -206,9 +209,9 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
           if (!row.screenshot) return
           const base64 = await resolveImageSrc(row.screenshot)
           if (!base64) return
-          const compressed = await compressImage(base64)
+          const stored = await storeImage(base64, isPostgres)
           const updated = rowsRef.current.map(r =>
-            r.id === inserted[i].id ? { ...r, screenshot: compressed } : r
+            r.id === inserted[i].id ? { ...r, screenshot: stored } : r
           )
           onChange(updated)
         })
@@ -225,9 +228,9 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
         try {
           const blob = item.getAsFile()
           const base64 = await fileToBase64(blob)
-          const compressed = await compressImage(base64)
+          const stored = await storeImage(base64, isPostgres)
           const updated = rowsRef.current.map(r =>
-            r.id === inserted[i].id ? { ...r, screenshot: compressed } : r
+            r.id === inserted[i].id ? { ...r, screenshot: stored } : r
           )
           onChange(updated)
         } catch { /* leave screenshot empty */ }
@@ -291,9 +294,9 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
               if (!row.screenshot) return
               const base64 = await resolveImageSrc(row.screenshot)
               if (!base64) return
-              const compressed = await compressImage(base64)
+              const stored = await storeImage(base64, isPostgres)
               const updated = rowsRef.current.map(r =>
-                r.id === inserted[i].id ? { ...r, screenshot: compressed } : r
+                r.id === inserted[i].id ? { ...r, screenshot: stored } : r
               )
               onChange(updated)
             })
@@ -308,9 +311,9 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
           try {
             const blob = await item.getType(imageType)
             const base64 = await fileToBase64(blob)
-            const compressed = await compressImage(base64)
+            const stored = await storeImage(base64, isPostgres)
             const updated = rowsRef.current.map(r =>
-              r.id === inserted[0].id ? { ...r, screenshot: compressed } : r
+              r.id === inserted[0].id ? { ...r, screenshot: stored } : r
             )
             onChange(updated)
           } catch { /* leave screenshot empty */ }

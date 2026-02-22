@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@tailwindcss/vite": "^4.1.18",
     "express": "^5.2.1",
+    "jszip": "^3.10.1",
     "pg": "^8.18.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
