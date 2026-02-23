@@ -163,32 +163,8 @@ body {
   margin-right: 1.5rem;
   cursor: pointer;
   flex-shrink: 0;
-}
-
-.thumb-image-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  border-radius: 12px;
   overflow: hidden;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
-}
-
-.thumb-image {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
   border-radius: 12px;
-}
-
-.thumb-image-container {
-  cursor: grab;
-}
-
-.thumb-image-container.thumb-image-dragging {
-  cursor: grabbing;
 }
 
 .thumb-image-placeholder {
@@ -216,7 +192,6 @@ body {
   position: absolute;
   z-index: 3;
   pointer-events: none;
-  animation: sparkleFloat 3s ease-in-out infinite;
 }
 
 .thumb-sparkle-1 {

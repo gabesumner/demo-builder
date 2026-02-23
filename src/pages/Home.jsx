@@ -4,11 +4,14 @@ import { getDemoList, getDemoData, createDemo, deleteDemo, saveDemoData, importD
 import { getDemoListFromApi, getDemoDataFromApi, createDemoInApi, deleteDemoFromApi, saveDemoDataToApi, setThumbnailCache } from '../utils/apiStorage'
 import { exportDemoAsZip, importFromZip } from '../utils/zipPorter'
 import { useStorageMode } from '../contexts/StorageModeContext'
+import { useImage } from '../hooks/useImage'
 import { GRADIENT_PRESETS } from '../steps/Overview'
 import NewDemoModal from '../components/NewDemoModal'
 
 const CANVAS_W = 600
 const CANVAS_H = CANVAS_W * 9 / 16
+// Must match Overview.jsx
+const AREA_ASPECT = (48 / 78) * (16 / 9)
 
 function getGradient(gradientId) {
   const preset = GRADIENT_PRESETS.find(g => g.id === gradientId)
@@ -35,7 +38,36 @@ function ThumbnailPreview({ overview }) {
     return () => ro.disconnect()
   }, [])
 
-  const { headline = '', thumbnailImage = '', gradientId = 'sf-brand', imageOffset = { x: 50, y: 50 } } = overview || {}
+  const {
+    headline = '', thumbnailImage = '', thumbnailZoom = 1.0, thumbnailAspect = null,
+    gradientId = 'sf-brand', imageOffset = { x: 50, y: 50 }
+  } = overview || {}
+
+  const thumbnailSrc = useImage(thumbnailImage)
+
+  // Auto-detect aspect ratio for legacy images that don't have it stored
+  const [detectedAspect, setDetectedAspect] = useState(null)
+  useEffect(() => {
+    if (!thumbnailSrc || thumbnailAspect) { setDetectedAspect(null); return }
+    let cancelled = false
+    const img = new window.Image()
+    img.onload = () => { if (!cancelled) setDetectedAspect(img.naturalWidth / img.naturalHeight) }
+    img.src = thumbnailSrc
+    return () => { cancelled = true }
+  }, [thumbnailSrc, thumbnailAspect])
+  const effectiveAspect = thumbnailAspect ?? detectedAspect ?? AREA_ASPECT
+
+  // Same fractions as Overview.jsx
+  let imgWFrac, imgHFrac
+  if (effectiveAspect > AREA_ASPECT) {
+    imgHFrac = thumbnailZoom
+    imgWFrac = thumbnailZoom * effectiveAspect / AREA_ASPECT
+  } else {
+    imgWFrac = thumbnailZoom
+    imgHFrac = thumbnailZoom * AREA_ASPECT / effectiveAspect
+  }
+  const leftFrac = (1 - imgWFrac) * (imageOffset.x / 100)
+  const topFrac  = (1 - imgHFrac) * (imageOffset.y / 100)
 
   return (
     <div ref={containerRef} className="relative w-full aspect-video rounded-xl overflow-hidden border-2 border-transparent group-hover:border-sf-blue-light/50 transition-all shadow-lg group-hover:shadow-sf-blue/20">
@@ -64,21 +96,32 @@ function ThumbnailPreview({ overview }) {
           </div>
         )}
 
-        {thumbnailImage && (
+        {thumbnailSrc && (
           <div className="thumb-image-area" style={{ cursor: 'default' }}>
-            <div className="thumb-image-container" style={{ cursor: 'default' }}>
-              <img
-                src={thumbnailImage}
-                alt=""
-                className="thumb-image"
-                draggable={false}
-                style={{ objectPosition: `${imageOffset.x}% ${imageOffset.y}%` }}
-              />
+            <div
+              style={{
+                position: 'absolute',
+                left: `${leftFrac * 100}%`,
+                top: `${topFrac * 100}%`,
+                width: `${imgWFrac * 100}%`,
+                height: `${imgHFrac * 100}%`,
+                borderRadius: 12,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.1)',
+              }}
+            >
+              <div style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }}>
+                <img
+                  src={thumbnailSrc}
+                  alt=""
+                  draggable={false}
+                  style={{ width: '100%', height: '100%', display: 'block' }}
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {!headline && !thumbnailImage && (
+        {!headline && !thumbnailSrc && (
           <div className="absolute inset-0 flex items-center justify-center">
             <span className="text-white/30 text-sm">No content yet</span>
           </div>

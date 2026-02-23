@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { fileToBase64, compressImage } from '../utils/imageUtils'
+import { fileToBase64, storeImage, getImageAspect } from '../utils/imageUtils'
+import { useStorageMode } from '../contexts/StorageModeContext'
+import { useImage } from '../hooks/useImage'
 import AutoHideTitle from '../components/AutoHideTitle'
 import AvatarCropModal from '../components/AvatarCropModal'
 
@@ -21,6 +23,8 @@ function getHeadlineFontSize(text) {
 }
 
 const MAX_HEADLINE = 100
+// Aspect ratio of .thumb-image-area (48% wide × 78% tall of a 16:9 canvas)
+const AREA_ASPECT = (48 / 78) * (16 / 9)
 
 function getInitials(name) {
   if (!name) return '?'
@@ -29,10 +33,46 @@ function getInitials(name) {
 
 export default function Overview({ data, onChange, showTitles }) {
   const {
-    headline = '', thumbnailImage = '', gradientId = 'sf-brand', imageOffset = { x: 50, y: 50 },
+    headline = '', thumbnailImage = '', thumbnailZoom = 1.0, thumbnailAspect = null,
+    gradientId = 'sf-brand', imageOffset = { x: 50, y: 50 },
     socialPostText = '', posterName = '', posterTitle = '',
     posterAvatar = '', posterAvatarOffset = { x: 50, y: 50 }, posterAvatarZoom = 1, posterAvatarIsLandscape = true
   } = data || {}
+
+  const { mode } = useStorageMode()
+  const isPostgres = mode === 'postgres'
+  const thumbnailSrc = useImage(thumbnailImage)
+  const posterAvatarSrc = useImage(posterAvatar)
+
+  // Auto-detect aspect ratio for legacy images that don't have it stored
+  const [detectedAspect, setDetectedAspect] = useState(null)
+  useEffect(() => {
+    if (!thumbnailSrc || thumbnailAspect) { setDetectedAspect(null); return }
+    let cancelled = false
+    const img = new window.Image()
+    img.onload = () => { if (!cancelled) setDetectedAspect(img.naturalWidth / img.naturalHeight) }
+    img.src = thumbnailSrc
+    return () => { cancelled = true }
+  }, [thumbnailSrc, thumbnailAspect])
+  const effectiveAspect = thumbnailAspect ?? detectedAspect ?? AREA_ASPECT
+
+  // Compute image's fractional width/height relative to the image area container.
+  // Wide images are height-constrained (auto ${zoom}%), tall/narrow are width-constrained (${zoom}% auto).
+  let imgWFrac, imgHFrac
+  if (effectiveAspect > AREA_ASPECT) {
+    imgHFrac = thumbnailZoom
+    imgWFrac = thumbnailZoom * effectiveAspect / AREA_ASPECT
+  } else {
+    imgWFrac = thumbnailZoom
+    imgHFrac = thumbnailZoom * AREA_ASPECT / effectiveAspect
+  }
+  // background-position X%: left = (containerW - imgW) * X/100 → same formula for absolute positioning
+  const leftFrac = (1 - imgWFrac) * (imageOffset.x / 100)
+  const topFrac  = (1 - imgHFrac) * (imageOffset.y / 100)
+
+  const containZoom = effectiveAspect > AREA_ASPECT
+    ? AREA_ASPECT / effectiveAspect
+    : effectiveAspect / AREA_ASPECT
 
   const [showAvatarModal, setShowAvatarModal] = useState(false)
 
@@ -42,6 +82,7 @@ export default function Overview({ data, onChange, showTitles }) {
   const postTextRef = useRef(null)
   const [flashPaste, setFlashPaste] = useState(false)
   const [showStyles, setShowStyles] = useState(false)
+  const [showZoom, setShowZoom] = useState(false)
 
   // Drag-to-pan state
   const [dragging, setDragging] = useState(false)
@@ -90,12 +131,30 @@ export default function Overview({ data, onChange, showTitles }) {
     const container = imageAreaRef.current
     if (!container) return
     const rect = container.getBoundingClientRect()
-    const dx = ((clientX - dragStart.current.x) / rect.width) * -100
-    const dy = ((clientY - dragStart.current.y) / rect.height) * -100
+
+    // Compute rendered image size in pixels (mirrors imgWFrac/imgHFrac computation above)
+    let imgW, imgH
+    const renderedAreaAspect = rect.width / rect.height
+    if (effectiveAspect > renderedAreaAspect) {
+      imgH = rect.height * thumbnailZoom
+      imgW = imgH * effectiveAspect
+    } else {
+      imgW = rect.width * thumbnailZoom
+      imgH = imgW / effectiveAspect
+    }
+
+    // background-position X% shifts the image by (containerSize - imgSize) * X/100 px.
+    // Inverting: dPct = pixelDelta / (containerSize - imgSize) * 100
+    // This naturally handles both directions: negative divisor (cover) flips it, positive (fit) keeps it.
+    const availX = rect.width - imgW
+    const availY = rect.height - imgH
+    const dx = availX !== 0 ? ((clientX - dragStart.current.x) / availX) * 100 : 0
+    const dy = availY !== 0 ? ((clientY - dragStart.current.y) / availY) * 100 : 0
+
     const newX = Math.min(100, Math.max(0, offsetStart.current.x + dx))
     const newY = Math.min(100, Math.max(0, offsetStart.current.y + dy))
     update({ imageOffset: { x: Math.round(newX), y: Math.round(newY) } })
-  }, [dragging, update])
+  }, [dragging, effectiveAspect, thumbnailZoom, update])
 
   const handleDragEnd = useCallback(() => {
     setDragging(false)
@@ -124,8 +183,8 @@ export default function Overview({ data, onChange, showTitles }) {
         e.preventDefault()
         const blob = item.getAsFile()
         const base64 = await fileToBase64(blob)
-        const compressed = await compressImage(base64)
-        update({ thumbnailImage: compressed, imageOffset: { x: 50, y: 50 } })
+        const [id, aspect] = await Promise.all([storeImage(base64, isPostgres), getImageAspect(base64)])
+        update({ thumbnailImage: id, thumbnailAspect: aspect, thumbnailZoom: 1.0, imageOffset: { x: 50, y: 50 } })
         setFlashPaste(true)
         setTimeout(() => setFlashPaste(false), 600)
         return
@@ -137,8 +196,8 @@ export default function Overview({ data, onChange, showTitles }) {
     const file = e.target.files?.[0]
     if (!file) return
     const base64 = await fileToBase64(file)
-    const compressed = await compressImage(base64)
-    update({ thumbnailImage: compressed, imageOffset: { x: 50, y: 50 } })
+    const [id, aspect] = await Promise.all([storeImage(base64, isPostgres), getImageAspect(base64)])
+    update({ thumbnailImage: id, thumbnailAspect: aspect, thumbnailZoom: 1.0, imageOffset: { x: 50, y: 50 } })
     e.target.value = ''
   }
 
@@ -160,11 +219,11 @@ export default function Overview({ data, onChange, showTitles }) {
               onClick={() => setShowAvatarModal(true)}
               title="Edit profile photo"
             >
-              {posterAvatar ? (
+              {posterAvatarSrc ? (
                 <div
                   className="w-full h-full rounded-full overflow-hidden"
                   style={{
-                    backgroundImage: `url(${posterAvatar})`,
+                    backgroundImage: `url(${posterAvatarSrc})`,
                     backgroundSize: posterAvatarIsLandscape ? `auto ${posterAvatarZoom * 100}%` : `${posterAvatarZoom * 100}% auto`,
                     backgroundPosition: `${posterAvatarOffset.x}% ${posterAvatarOffset.y}%`,
                     backgroundRepeat: 'no-repeat',
@@ -304,45 +363,33 @@ export default function Overview({ data, onChange, showTitles }) {
             <div
               ref={imageAreaRef}
               className="thumb-image-area"
-              onClick={() => { if (!thumbnailImage) imageInputRef.current?.click() }}
+              onClick={() => { if (!thumbnailSrc) imageInputRef.current?.click() }}
+              onMouseEnter={() => setShowZoom(true)}
+              onMouseLeave={() => setShowZoom(false)}
             >
-              {thumbnailImage ? (
+              {thumbnailSrc ? (
                 <div
-                  className={`thumb-image-container group ${dragging ? 'thumb-image-dragging' : ''}`}
+                  style={{
+                    position: 'absolute',
+                    left: `${leftFrac * 100}%`,
+                    top: `${topFrac * 100}%`,
+                    width: `${imgWFrac * 100}%`,
+                    height: `${imgHFrac * 100}%`,
+                    borderRadius: 12,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,255,255,0.1)',
+                    cursor: dragging ? 'grabbing' : 'grab',
+                  }}
                   onMouseDown={handleDragStart}
                   onTouchStart={handleDragStart}
                 >
-                  <img
-                    src={thumbnailImage}
-                    alt=""
-                    className="thumb-image"
-                    draggable={false}
-                    style={{ objectPosition: `${imageOffset.x}% ${imageOffset.y}%` }}
-                  />
-                  {!dragging && (
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex flex-col items-center justify-center gap-2">
-                      <div className="flex items-center gap-1 text-white/70 text-xs">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-                        </svg>
-                        Drag to reposition
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={e => { e.stopPropagation(); imageInputRef.current?.click() }}
-                          className="bg-white/20 backdrop-blur-sm text-white px-3 py-1.5 rounded text-sm border border-white/30 cursor-pointer hover:bg-white/30 transition-colors"
-                        >
-                          Replace
-                        </button>
-                        <button
-                          onClick={e => { e.stopPropagation(); update({ thumbnailImage: '', imageOffset: { x: 50, y: 50 } }) }}
-                          className="bg-red-500/80 backdrop-blur-sm text-white px-3 py-1.5 rounded text-sm border-none cursor-pointer hover:bg-red-500 transition-colors"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                  <div style={{ width: '100%', height: '100%', borderRadius: 12, overflow: 'hidden' }}>
+                    <img
+                      src={thumbnailSrc}
+                      alt=""
+                      draggable={false}
+                      style={{ width: '100%', height: '100%', display: 'block' }}
+                    />
+                  </div>
                 </div>
               ) : (
                 <div className="thumb-image-placeholder">
@@ -351,6 +398,60 @@ export default function Overview({ data, onChange, showTitles }) {
                   </svg>
                   <span className="text-sm opacity-60">Click, paste, or drop</span>
                   <span className="text-xs opacity-40 mt-1">Product screenshot</span>
+                </div>
+              )}
+              {/* Stable hover overlay: Replace / Remove / drag hint */}
+              {thumbnailSrc && (
+                <div
+                  className={`absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/50 transition-opacity pointer-events-none ${showZoom && !dragging ? 'opacity-100' : 'opacity-0'}`}
+                  style={{ zIndex: 9 }}
+                >
+                  {thumbnailZoom > containZoom + 0.05 && (
+                    <div className="flex items-center gap-1 text-white/70 text-xs">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+                      </svg>
+                      Drag to reposition
+                    </div>
+                  )}
+                  <div className="flex gap-2 pointer-events-auto">
+                    <button
+                      onClick={e => { e.stopPropagation(); imageInputRef.current?.click() }}
+                      className="bg-white/20 backdrop-blur-sm text-white px-3 py-1.5 rounded text-sm border border-white/30 cursor-pointer hover:bg-white/30 transition-colors"
+                    >
+                      Replace
+                    </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); update({ thumbnailImage: '', thumbnailAspect: null, thumbnailZoom: 1.0, imageOffset: { x: 50, y: 50 } }) }}
+                      className="bg-red-500/80 backdrop-blur-sm text-white px-3 py-1.5 rounded text-sm border-none cursor-pointer hover:bg-red-500 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )}
+              {thumbnailSrc && (
+                <div
+                  className={`absolute bottom-2 left-2 right-2 flex items-center gap-2 px-2 py-1.5 bg-black/60 backdrop-blur-sm rounded-lg transition-opacity ${showZoom && !dragging ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                  style={{ zIndex: 10 }}
+                  onMouseDown={e => e.stopPropagation()}
+                >
+                  <svg className="w-3.5 h-3.5 text-white/60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" strokeWidth={2} /><path strokeLinecap="round" strokeWidth={2} d="M8 11h6" />
+                  </svg>
+                  <input
+                    type="range"
+                    min={containZoom}
+                    max={3}
+                    step={0.01}
+                    value={thumbnailZoom}
+                    onChange={e => update({ thumbnailZoom: parseFloat(e.target.value) })}
+                    className="avatar-zoom-slider flex-1"
+                    onMouseDown={e => e.stopPropagation()}
+                  />
+                  <svg className="w-3.5 h-3.5 text-white/60 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" strokeWidth={2} /><path strokeLinecap="round" strokeWidth={2} d="M21 21l-4.35-4.35M8 11h6M11 8v6" />
+                  </svg>
                 </div>
               )}
               <input ref={imageInputRef} type="file" accept="image/*" onChange={handleImageFile} className="hidden" />
@@ -389,12 +490,18 @@ export default function Overview({ data, onChange, showTitles }) {
 
       {showAvatarModal && (
         <AvatarCropModal
-          image={posterAvatar}
+          image={posterAvatarSrc}
           offset={posterAvatarOffset}
           zoom={posterAvatarZoom}
           isLandscape={posterAvatarIsLandscape}
-          onSave={({ image, offset, zoom, isLandscape }) => {
-            update({ posterAvatar: image, posterAvatarOffset: offset, posterAvatarZoom: zoom, posterAvatarIsLandscape: isLandscape })
+          onSave={async ({ image, offset, zoom, isLandscape }) => {
+            let id = ''
+            if (image?.startsWith('data:')) {
+              id = await storeImage(image, isPostgres)
+            } else if (image) {
+              id = posterAvatar // unchanged — keep existing ID
+            }
+            update({ posterAvatar: id, posterAvatarOffset: offset, posterAvatarZoom: zoom, posterAvatarIsLandscape: isLandscape })
             setShowAvatarModal(false)
           }}
           onClose={() => setShowAvatarModal(false)}

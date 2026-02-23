@@ -1,6 +1,14 @@
 import { idbSaveImage } from './idbStorage';
 import { saveImageToApi } from './apiStorage';
 
+export function getImageAspect(base64) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+    img.src = base64;
+  });
+}
+
 export function fileToBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -10,7 +18,6 @@ export function fileToBase64(file) {
   });
 }
 
-// Used for thumbnail generation only (Overview card preview, avatar)
 export function compressImage(base64, maxDim = 1200, quality = 0.7) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -21,7 +28,8 @@ export function compressImage(base64, maxDim = 1200, quality = 0.7) {
       canvas.width = Math.round(img.width * scale);
       canvas.height = Math.round(img.height * scale);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      const isPng = base64.startsWith('data:image/png');
+      resolve(isPng ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
     };
     img.src = base64;
   });
@@ -59,6 +67,16 @@ export async function storeImage(base64, isPostgres = false) {
 export async function migrateInlineImages(data, isPostgres = false) {
   let didMigrate = false;
   const migrated = { ...data };
+
+  if (migrated.thumbnailImage?.startsWith('data:')) {
+    migrated.thumbnailImage = await storeImage(migrated.thumbnailImage, isPostgres);
+    didMigrate = true;
+  }
+
+  if (migrated.posterAvatar?.startsWith('data:')) {
+    migrated.posterAvatar = await storeImage(migrated.posterAvatar, isPostgres);
+    didMigrate = true;
+  }
 
   // fromTo side images
   for (const side of ['from', 'to']) {

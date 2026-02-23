@@ -139,9 +139,9 @@ export function getThumbnailCache(demoId) {
 
 export function setThumbnailCache(demoId, overview) {
   if (!overview) return;
-  const { headline, thumbnailImage, gradientId, imageOffset } = overview;
+  const { headline, thumbnailImage, thumbnailZoom, thumbnailAspect, gradientId, imageOffset } = overview;
   try {
-    localStorage.setItem(`thumb_${demoId}`, JSON.stringify({ headline, thumbnailImage, gradientId, imageOffset }));
+    localStorage.setItem(`thumb_${demoId}`, JSON.stringify({ headline, thumbnailImage, thumbnailZoom, thumbnailAspect, gradientId, imageOffset }));
   } catch {
     // Ignore quota errors for cache
   }
