@@ -34,7 +34,7 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 transition-colors ${{ red: 'bg-red-500/[0.10] hover:bg-red-500/[0.15]', yellow: 'bg-amber-400/[0.10] hover:bg-amber-400/[0.15]', green: 'bg-green-500/[0.10] hover:bg-green-500/[0.15]' }[row.highlight ?? (row.highlighted ? 'yellow' : null)] ?? 'hover:bg-white/[0.01]'}`}
+      className={`group/row grid grid-cols-[28px_28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 transition-colors ${{ red: 'bg-red-500/[0.10] hover:bg-red-500/[0.15]', yellow: 'bg-amber-400/[0.10] hover:bg-amber-400/[0.15]', green: 'bg-green-500/[0.10] hover:bg-green-500/[0.15]' }[row.highlight ?? (row.highlighted ? 'yellow' : null)] ?? 'hover:bg-white/[0.01]'}`}
       onContextMenu={e => onContextMenu(e, index)}
     >
       <div className="flex items-center justify-center">
@@ -53,6 +53,9 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
             <circle cx="15" cy="17" r="1.5" />
           </svg>
         </button>
+      </div>
+      <div className="flex items-start justify-end pt-[18px] pr-1.5">
+        <span className="text-slate-600 text-xs font-mono tabular-nums select-none">{index + 1}</span>
       </div>
       <div className="p-4 border-r border-dark-border" data-image-upload
         onFocus={() => setFocus(index, 'screenshot')}
@@ -373,7 +376,8 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
 
       <div className="bg-dark-surface rounded-2xl border border-dark-border overflow-hidden shadow-[0_4px_24px_rgba(0,0,0,0.3)]">
         {/* Header */}
-        <div className="grid grid-cols-[28px_242px_1fr_0.81fr_40px] bg-dark-bg/60 border-b border-dark-border">
+        <div className="grid grid-cols-[28px_28px_242px_1fr_0.81fr_40px] bg-dark-bg/60 border-b border-dark-border">
+          <div />
           <div />
           <div className="px-5 py-4 border-r border-dark-border">
             <div className="font-semibold text-sm text-slate-200">What You See</div>
