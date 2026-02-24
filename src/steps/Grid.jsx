@@ -34,7 +34,7 @@ function SortableGridRow({ row, index, updateRow, removeRow, setFocus, clearFocu
     <div
       ref={setNodeRef}
       style={style}
-      className={`group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 transition-colors ${row.highlighted ? 'bg-amber-500/[0.07] hover:bg-amber-500/[0.11]' : 'hover:bg-white/[0.01]'}`}
+      className={`group/row grid grid-cols-[28px_242px_1fr_0.81fr_40px] border-b border-dark-border last:border-b-0 transition-colors ${{ red: 'bg-red-500/[0.10] hover:bg-red-500/[0.15]', yellow: 'bg-amber-400/[0.10] hover:bg-amber-400/[0.15]', green: 'bg-green-500/[0.10] hover:bg-green-500/[0.15]' }[row.highlight ?? (row.highlighted ? 'yellow' : null)] ?? 'hover:bg-white/[0.01]'}`}
       onContextMenu={e => onContextMenu(e, index)}
     >
       <div className="flex items-center justify-center">
@@ -256,7 +256,7 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
 
   function handleRowContextMenu(e, rowIndex) {
     e.preventDefault()
-    const menuHeight = 190
+    const menuHeight = 280
     const menuWidth = 220
     const y = e.clientY + menuHeight > window.innerHeight ? e.clientY - menuHeight : e.clientY
     const x = e.clientX + menuWidth > window.innerWidth ? e.clientX - menuWidth : e.clientX
@@ -271,8 +271,8 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
     setContextMenu(null)
   }
 
-  function toggleHighlight(rowIndex) {
-    const next = rowsRef.current.map((r, i) => i === rowIndex ? { ...r, highlighted: !r.highlighted } : r)
+  function setHighlight(rowIndex, color) {
+    const next = rowsRef.current.map((r, i) => i === rowIndex ? { ...r, highlight: color } : r)
     onChange(next)
     setContextMenu(null)
   }
@@ -487,14 +487,30 @@ export default function Grid({ data, onChange, allData, showTitles, showToast })
             Paste items below
           </button>
           <div className="border-t border-dark-border my-1.5" />
+          {[
+            { color: 'red',    label: 'Red',    dot: 'bg-red-500' },
+            { color: 'yellow', label: 'Yellow', dot: 'bg-amber-400' },
+            { color: 'green',  label: 'Green',  dot: 'bg-green-500' },
+          ].map(({ color, label, dot }) => {
+            const active = (rows[contextMenu.rowIndex]?.highlight ?? (rows[contextMenu.rowIndex]?.highlighted ? 'yellow' : null)) === color
+            return (
+              <button
+                key={color}
+                onClick={() => setHighlight(contextMenu.rowIndex, color)}
+                className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
+              >
+                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot}`} />
+                Highlight {label}
+                {active && <svg className="w-3.5 h-3.5 ml-auto text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>}
+              </button>
+            )
+          })}
           <button
-            onClick={() => toggleHighlight(contextMenu.rowIndex)}
+            onClick={() => setHighlight(contextMenu.rowIndex, null)}
             className="w-full text-left px-4 py-2 text-sm text-slate-300 hover:bg-white/[0.06] hover:text-white transition-colors flex items-center gap-3 cursor-pointer bg-transparent border-none"
           >
-            <svg className="w-4 h-4 shrink-0 text-amber-500/70" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.8}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-            </svg>
-            {rows[contextMenu.rowIndex]?.highlighted ? 'Clear highlight' : 'Highlight row'}
+            <span className="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-600" />
+            Clear highlight
           </button>
         </div>
       )}
